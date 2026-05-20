@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: helpdesk-svc
+spec:
+  type: LoadBalancer # Нативная интеграция с облачным балансировщиком AWS
+  selector:
+    app: helpdesk-app  # Связывает балансировщик с подами деплоймента выше
+  ports:
+    - protocol: TCP
+      port: 80          # Внешний порт для пользователей в браузере (HTTP)
+      targetPort: 8000  # Внутренний порт, на который перенаправляется трафик в под

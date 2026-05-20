@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: helpdesk-app
+spec:
+  replicas: 2 # Две реплики для обеспечения отказоустойчивости (High Availability)
+  selector:
+    matchLabels:
+      app: helpdesk-app
+  template:
+    metadata:
+      labels:
+        app: helpdesk-app
+    spec:
+      containers:
+        - name: app
+          # Ссылка на ваш Docker Hub, куда GitHub Actions отправляет сборку
+          image: your-dockerhub-username/helpdesk-app:latest
+          imagePullPolicy: Always  
+          ports:
+            - containerPort: 8000 # Порт запуска Flask/Gunicorn внутри контейнера
+          
+          env:
+            # Динамически импортируем IP-адрес базы из ConfigMap, созданного Terraform
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: db-config
+                  key: DB_HOST
+          
+          # Автоматически импортируем переменные DB_USER, DB_PASSWORD и DB_NAME из секретов
+          envFrom:
+            - secretRef:
+                name: helpdesk-secret
+          
+          # Проверка готовности (Readiness Probe). Исключает отправку трафика на «сырой» под
+          readinessProbe:
+            httpGet:
+              path: /health # Убедитесь, что этот роут возвращает статус 200 во Flask
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5

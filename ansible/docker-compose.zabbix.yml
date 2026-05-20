@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  zabbix-db:
+    image: mysql:8.0
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin
+    environment:
+      MYSQL_DATABASE: zabbix
+      MYSQL_USER: zabbix
+      MYSQL_PASSWORD: zabbix_secure_pass
+      MYSQL_ROOT_PASSWORD: root_secure_pass
+    volumes:
+      - zabbix-db-data:/var/lib/mysql
+    restart: unless-stopped
+
+  zabbix-server:
+    image: zabbix/zabbix-server-mysql:ubuntu-7.0-latest
+    ports:
+      - "10051:10051"
+    environment:
+      DB_SERVER_HOST: zabbix-db
+      MYSQL_DATABASE: zabbix
+      MYSQL_USER: zabbix
+      MYSQL_PASSWORD: zabbix_secure_pass
+      MYSQL_ROOT_PASSWORD: root_secure_pass
+    depends_on:
+      - zabbix-db
+    restart: unless-stopped
+
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-mysql:ubuntu-7.0-latest
+    ports:
+      - "80:8080" # Внешний порт 80 (HTTP) для входа в админку
+    environment:
+      ZBX_SERVER_HOST: zabbix-server
+      DB_SERVER_HOST: zabbix-db
+      MYSQL_DATABASE: zabbix
+      MYSQL_USER: zabbix
+      MYSQL_PASSWORD: zabbix_secure_pass
+    depends_on:
+      - zabbix-server
+    restart: unless-stopped
+
+volumes:
+  zabbix-db-data:
