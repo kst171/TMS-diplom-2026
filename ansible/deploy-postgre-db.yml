@@ -16,7 +16,6 @@
           - python3-psycopg2
         state: present
         update_cache: yes
-      # Перенесли на правильный уровень отступов и исправили опечатку в apt_result
       register: apt_result
       until: apt_result is success
       retries: 10
