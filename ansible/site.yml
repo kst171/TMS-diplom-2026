@@ -33,16 +33,16 @@
         line: "host    all             all             10.0.0.0/16            scram-sha-256"
       notify: Restart PostgreSQL
 
-    - name: Создание базы данных (support_db)
+    - name: Создание базы данных (fs_support_db)
       community.postgresql.postgresql_db:
-        name: support_db
+        name: fs_support_db # Соответствует DB_NAME из k8s-секрета
       become_user: postgres
 
-    - name: Создание пользователя (support_user) и назначение пароля
+    - name: Создание пользователя (db_user) и назначение пароля
       community.postgresql.postgresql_user:
-        db: support_db
-        name: support_user
-        password: "support_pass" 
+        db: fs_support_db
+        name: db_user # Соответствует DB_USER из k8s-секрета
+        password: "db_secure_password" # Соответствует DB_PASSWORD из k8s-секрета
         priv: "ALL"
       become_user: postgres
 
