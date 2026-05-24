@@ -2,8 +2,9 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: helpdesk-app
+  namespace: default
 spec:
-  replicas: 2 # Две реплики для обеспечения отказоустойчивости (High Availability)
+  replicas: 1 # 1 реплика экономит ресурсы AWS и упрощает демонстрацию логов комиссии
   selector:
     matchLabels:
       app: helpdesk-app
@@ -11,32 +12,36 @@ spec:
     metadata:
       labels:
         app: helpdesk-app
+    
     spec:
       containers:
         - name: app
-          # Ссылка на ваш Docker Hub, куда GitHub Actions отправляет сборку
-          image: your-dockerhub-username/helpdesk-app:latest
-          imagePullPolicy: Always  
+          # Ссылка на ваш приватный AWS ECR (Стокгольм eu-north-1)
+          image: <ВАШ_AWS_ACCOUNT_ID>://{IMAGE_TAG}
           ports:
-            - containerPort: 8000 # Порт запуска Flask/Gunicorn внутри контейнера
+            - containerPort: 8000 # Порт, на котором Gunicorn запускает Flask
           
+          # Переносим настройки из вашего блока `web` и `.env` сюда напрямую
           env:
-            # Динамически импортируем IP-адрес базы из ConfigMap, созданного Terraform
             - name: DB_HOST
-              valueFrom:
-                configMapKeyRef:
-                  name: db-config
-                  key: DB_HOST
-          
-          # Автоматически импортируем переменные DB_USER, DB_PASSWORD и DB_NAME из секретов
-          envFrom:
-            - secretRef:
-                name: helpdesk-secret
-          
-          # Проверка готовности (Readiness Probe). Исключает отправку трафика на «сырой» под
-          readinessProbe:
-            httpGet:
-              path: /health # Убедитесь, что этот роут возвращает статус 200 во Flask
-              port: 8000
-            initialDelaySeconds: 10
-            periodSeconds: 5
+              value: "10.0.1.89"       # Приватный IP адрес вашей нативной базы на EC2
+            - name: DB_USER
+              value: "support_user"    # Значение из POSTGRES_USER в docker-compose
+            - name: DB_PASSWORD
+              value: "support_pass"    # Значение из POSTGRES_PASSWORD в docker-compose
+            - name: DB_NAME
+              value: "support_db"      # Значение из POSTGRES_DB в docker-compose
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: helpdesk-service
+  namespace: default
+spec:
+  type: LoadBalancer # AWS автоматически создаст Classic/Network Load Balancer
+  ports:
+  - port: 80         # Внешний порт для доступа из браузера (http://<IP_балансировщика>)
+    targetPort: 8000 # Внутренний порт, на который перенаправляется трафик в контейнер
+  selector:
+    app: helpdesk-app

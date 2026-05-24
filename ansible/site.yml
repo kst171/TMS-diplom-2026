@@ -7,5 +7,47 @@
   import_playbook: deploy-zabbix.yml
 
 # Шаг 2: Только после этого настраиваем PostgreSQL в приватной подсети
-- name: Import PostgreSQL deployment configuration
-  import_playbook: deploy-postgre-db.yml
+- name: Настройка сервера PostgreSQL
+  hosts: app_databases
+  become: true # Запуск от имени root (sudo)
+  tasks:
+    - name: Установка PostgreSQL и необходимых библиотек для Python
+      apt:
+        name:
+          - postgresql
+          - postgresql-contrib
+          - python3-psycopg2 # Важно: без этого модуля Ansible не сможет управлять базой
+        state: present
+        update_cache: yes
+
+- name: Настройка listen_addresses в конфигурации PostgreSQL
+      lineinfile:
+        path: /etc/postgresql/16/main/postgresql.conf 
+        regexp: "^#?listen_addresses\\s*=\\s*"
+        line: "listen_addresses = '*'"
+      notify: Restart PostgreSQL
+
+- name: Настройка прав доступа в pg_hba.conf
+      lineinfile:
+        path: /etc/postgresql/16/main/pg_hba.conf
+        line: "host    all             all             10.0.0.0/16            scram-sha-256"
+      notify: Restart PostgreSQL
+
+    - name: Создание базы данных (support_db)
+      community.postgresql.postgresql_db:
+        name: support_db
+      become_user: postgres
+
+    - name: Создание пользователя (support_user) и назначение пароля
+      community.postgresql.postgresql_user:
+        db: support_db
+        name: support_user
+        password: "support_pass" 
+        priv: "ALL"
+      become_user: postgres
+
+  handlers:
+    - name: Restart PostgreSQL
+      service:
+        name: postgresql
+        state: restarted
