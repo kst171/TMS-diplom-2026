@@ -16,10 +16,12 @@ spec:
     spec:
       containers:
         - name: app
-          # Ссылка на ваш приватный AWS ECR (Стокгольм eu-north-1)
-          image: <ВАШ_AWS_ACCOUNT_ID>://{IMAGE_TAG}
+          # Пайплайн GitHub Actions сам заменит эту строчку на ваш Docker Hub репозиторий с нужным тегом
+          image: your-dockerhub-username/helpdesk-app:${IMAGE_TAG}
+          imagePullPolicy: Always
           ports:
-            - containerPort: 8000 # Порт, на котором Gunicorn запускает Flask
+            - containerPort: 8000 # Порт запуска Flask/Gunicorn внутри контейнера
+
           
           # Переносим настройки из вашего блока `web` и `.env` сюда напрямую
           env:
