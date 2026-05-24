@@ -1,7 +1,7 @@
-from flask_sqlalchemy import SQLAlchemy
+import os
 from datetime import datetime
 import pytz
-import os
+from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
@@ -31,8 +31,8 @@ class Ticket(db.Model):
     updated_at    = db.Column(db.DateTime, default=now_local, onupdate=now_local)
     closed_at     = db.Column(db.DateTime, nullable=True)
 
+    # Связь один-ко-многим с классом Comment
     comments = db.relationship('Comment', backref='ticket', lazy=True, cascade='all, delete-orphan')
-
 
     def __repr__(self):
         return f'<Ticket {self.ticket_number}>'
@@ -60,10 +60,11 @@ class Ticket(db.Model):
 
 
 class Comment(db.Model):
-    __tablename__ = 'comments'
+    # Фиксируем имя таблицы в единственном числе для архитектурного порядка
+    __tablename__ = 'comment'
 
     id          = db.Column(db.Integer, primary_key=True)
-    ticket_id   = db.Column(db.Integer, db.ForeignKey('tickets.id'), nullable=False)
+    ticket_id   = db.Column(db.Integer, db.ForeignKey('ticket.id'), nullable=False)
     author      = db.Column(db.String(100), nullable=False)
     text        = db.Column(db.Text, nullable=False)
     is_internal = db.Column(db.Boolean, default=False)
