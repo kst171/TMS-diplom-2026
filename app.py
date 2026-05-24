@@ -35,7 +35,13 @@ app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
-migrate = Migrate(app, db)
+#migrate = Migrate(app, db)
+with app.app_context():
+    try:
+        db.create_all()
+        print("База данных успешно синхронизирована с моделями, таблицы проверены.")
+    except Exception as e:
+        print(f"Ошибка автоматического создания таблиц: {e}")
 
 
 def generate_ticket_number():

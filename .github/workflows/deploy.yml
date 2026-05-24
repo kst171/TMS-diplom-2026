@@ -126,15 +126,5 @@ jobs:
           kubectl apply -f k8s/secret.yaml
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/service.yaml
-          
-          echo "Ожидаем 15 секунд, пока новый контейнер приложения перейдет в статус Running..."
-          sleep 15
-          
-          echo "Автоматически находим имя запущенного пода и накатываем миграции в PostgreSQL..."
-          # Фильтр извлекает имя первого пода, принадлежащего деплойменту helpdesk-app
-          POD_NAME=$(kubectl get pods -l app=helpdesk-app -o jsonpath="{.items[0].metadata.name}")
-          
-          # Запускаем миграцию базы данных внутри этого подa
-          kubectl exec $POD_NAME -- flask db upgrade
-          echo "Миграции успешно применены к базе данных на EC2."
+
 
