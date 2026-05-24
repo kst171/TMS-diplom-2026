@@ -12,6 +12,11 @@ load_dotenv()
 
 app = Flask(__name__)
 
+@app.route('/health')
+def health_check():
+    return {"status": "ok"}, 200
+
+
 # ─── Динамическая сборка строки подключения к PostgreSQL ──────────────────────
 db_user     = os.getenv('DB_USER')
 db_password = os.getenv('DB_PASSWORD')
