@@ -12,7 +12,7 @@ def now_local():
 
 
 class Ticket(db.Model):
-    __tablename__ = 'tickets'
+    __tablename__ = 'ticket'
 
     id            = db.Column(db.Integer, primary_key=True)
     ticket_number = db.Column(db.String(20), unique=True, nullable=False)
