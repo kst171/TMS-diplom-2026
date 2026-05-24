@@ -9,86 +9,120 @@ jobs:
   configure-aws-infrastructure:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout repository code
-      uses: actions/checkout@v4
+      - name: Checkout repository code
+        uses: actions/checkout@v4
 
-    - name: Configure AWS credentials for Security Group update
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: eu-north-1
+      - name: Configure AWS credentials for Security Group update
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1
 
-    # Динамически узнаем IP раннера и временно открываем порт 22 в SG Zabbix
-    - name: Authorize GitHub Runner IP in Zabbix Security Group
-      run: |
-        RUNNER_IP=$(curl -s https://amazonaws.com)
-        echo "RUNNER_IP=${RUNNER_IP}" >> $GITHUB_ENV
-        SG_ID=$(aws ec2 describe-security-groups --filters "Name=group-name,Values=zabbix-sg" --query "SecurityGroups.GroupId" --output text)
-        echo "SG_ID=${SG_ID}" >> $GITHUB_ENV
-        aws ec2 authorize-security-group-ingress --group-id $SG_ID --protocol tcp --port 22 --cidr ${RUNNER_IP}/32
+      # Динамически узнаем IP раннера и временно открываем порт 22 в SG Zabbix
+      - name: Authorize GitHub Runner IP in Zabbix Security Group
+        env:
+          AWS_DEFAULT_REGION: eu-north-1
+        run: |
+          # Используем максимально стабильный и прямой сервис получения IP без лишних редиректов
+          RUNNER_IP=$(curl -s https://ifconfig.me || curl -s https://ipify.org)
+          
+          # Строгая очистка строки от мусора
+          RUNNER_IP=$(echo "$RUNNER_IP" | tr -d '\n' | tr -d '\r' | xargs)
+          
+          # Валидация IP-адреса (IPv4 регулярное выражение)
+          if [[ ! "$RUNNER_IP" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+            echo "::error::Получен некорректный IP адрес: $RUNNER_IP"
+            exit 1
+          fi
+          
+          # Экспорт переменной в окружение GitHub Actions по актуальному стандарту
+          echo "RUNNER_IP=$RUNNER_IP" >> "$GITHUB_ENV"
+          echo "Успешно определен IP раннера: $RUNNER_IP"
+          
+          # Получаем ID группы безопасности (фильтруем по group-name, как настроено в вашем zabbix.tf)
+          SG_ID=$(aws ec2 describe-security-groups --filters "Name=group-name,Values=zabbix-sg" --query "SecurityGroups[0].GroupId" --output text)
+          
+          if [ "$SG_ID" = "None" ] || [ -z "$SG_ID" ]; then
+            echo "::error::Группа безопасности с именем 'zabbix-sg' не найдена в AWS!"
+            exit 1
+          fi
+          
+          echo "SG_ID=$SG_ID" >> "$GITHUB_ENV"
+          echo "Найдена группа безопасности ID: $SG_ID"
+          
+          # Авторизуем IP адрес в AWS Security Group
+          aws ec2 authorize-security-group-ingress \
+            --group-id "$SG_ID" \
+            --protocol tcp \
+            --port 22 \
+            --cidr "${RUNNER_IP}/32"
+          
+          echo "Доступ по порту 22 для $RUNNER_IP успешно открыт."
 
-    # Пробрасываем SSH-ключ развертывания из GitHub Secrets в память ssh-agent
-    - name: Set up SSH Agent Forwarding
-      uses: webfactory/ssh-agent@v0.9.0
-      with:
-        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      # Пробрасываем SSH-ключ развертывания из GitHub Secrets в память ssh-agent
+      - name: Set up SSH Agent Forwarding
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-    # Запуск автоматизации Ansible по сгенерированному из Terraform инвентарю
-    - name: Run Ansible Playbook
-      env:
-        ANSIBLE_HOST_KEY_CHECKING: "False"
-      run: |
-        cd ansible/
-        ansible-playbook -i inventory.ini site.yml
+      # Запуск автоматизации Ansible по сгенерированному из Terraform инвентарю
+      - name: Run Ansible Playbook
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "False"
+        run: |
+          cd ansible/
+          ansible-playbook -i inventory.ini site.yml
 
-    # Закрываем SSH в AWS Security Group при любом исходе выполнения плейбука
-    - name: Revoke GitHub Runner IP from Security Group
-      if: always()
-      run: |
-        if [ -n "${{ env.SG_ID }}" ] && [ -n "${{ env.RUNNER_IP }}" ]; then
-          aws ec2 revoke-security-group-ingress --group-id ${{ env.SG_ID }} --protocol tcp --port 22 --cidr ${{ env.RUNNER_IP }}/32
-        fi
+      # Закрываем SSH in AWS Security Group при любом исходе выполнения плейбука
+      - name: Revoke GitHub Runner IP from Security Group
+        if: always()
+        run: |
+          if [ -n "${{ env.SG_ID }}" ] && [ -n "${{ env.RUNNER_IP }}" ]; then
+            aws ec2 revoke-security-group-ingress --group-id ${{ env.SG_ID }} --protocol tcp --port 22 --cidr ${{ env.RUNNER_IP }}/32
+          fi
 
   # === ЭТАП 2: СБОРКА FLASK И ДЕПЛОЙ В AWS EKS ===
   deploy-flask-to-kubernetes:
     runs-on: ubuntu-latest
     needs: configure-aws-infrastructure 
     steps:
-    - name: Checkout repository code
-      uses: actions/checkout@v4
+      - name: Checkout repository code
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Log in to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Build and push Docker image to Docker Hub
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        file: ./Dockerfile
-        push: true
-        tags: |
-          ${{ secrets.DOCKERHUB_USERNAME }}/helpdesk-app:latest
-          ${{ secrets.DOCKERHUB_USERNAME }}/helpdesk-app:${{ github.sha }}
+      - name: Build and push Docker image to Docker Hub
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/helpdesk-app:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/helpdesk-app:${{ github.sha }}
 
-    - name: Configure AWS credentials for EKS
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: eu-north-1
+      - name: Configure AWS credentials for EKS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-north-1
 
-    - name: Update kubeconfig
-      run: aws eks update-kubeconfig --name kst-diplom-eks-cluster --region eu-north-1
+      - name: Update kubeconfig
+        run: aws eks update-kubeconfig --name kst-diplom-eks-cluster --region eu-north-1
 
-    # Подставляем уникальный хэш коммита вместо переменной в манифест Kubernetes
-    - name: Deploy to EKS
-      run: |
-        sed -i "s|your-dockerhub-username/helpdesk-app:\${IMAGE_TAG}|${{ secrets.DOCKERHUB_USERNAME }}/helpdesk-app:${{ github.sha }}|g" k8s/deployment.yaml
-        kubectl apply -f k8s/deployment.yaml
+      # Подставляем уникальный хэш коммита вместо переменной в манифесты Kubernetes
+      - name: Deploy to EKS
+        run: |
+          sed -i "s|your-dockerhub-username/helpdesk-app:\${IMAGE_TAG}|${{ secrets.DOCKERHUB_USERNAME }}/helpdesk-app:${{ github.sha }}|g" k8s/deployment.yaml
+          kubectl apply -f k8s/secret.yaml
+          kubectl apply -f k8s/deployment.yaml
+          kubectl apply -f k8s/service.yaml
