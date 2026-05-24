@@ -1,4 +1,3 @@
-
 # ──────────────────────────────────────────
 # Шаг 1: установка зависимостей
 # ──────────────────────────────────────────
@@ -33,6 +32,8 @@ COPY --from=builder /root/.local /root/.local
 COPY app.py models.py requirements.txt ./
 COPY templates/ templates/
 COPY static/ static/
+# КРИТИЧНО: Явно копируем папку миграций во второй (финальный) этап сборки
+COPY migrations/ migrations/
 
 ENV PATH=/root/.local/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
