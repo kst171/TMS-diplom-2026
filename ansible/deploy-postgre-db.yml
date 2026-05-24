@@ -10,14 +10,17 @@
   tasks:
     - name: Install PostgreSQL server and contrib modules
       apt:
-        name: [postgresql, postgresql-contrib, python3-psycopg2]
+        name: 
+          - postgresql
+          - postgresql-contrib
+          - python3-psycopg2
         state: present
         update_cache: yes
-
-        register: apt_result
-        until: apt_resilt is success
-        retries: 10
-        delay: 15
+      # Перенесли на правильный уровень отступов и исправили опечатку в apt_result
+      register: apt_result
+      until: apt_result is success
+      retries: 10
+      delay: 15
 
     - name: Ensure PostgreSQL is running and enabled at boot
       systemd:
@@ -27,7 +30,7 @@
 
     - name: Configure PostgreSQL to listen on all IP addresses
       lineinfile:
-        path: /etc/postgresql/16/main/postgresql.conf  # Для Ubuntu 24.04 ставится PG 16
+        path: /etc/postgresql/16/main/postgresql.conf
         regexp: "^#?listen_addresses\\s*="
         line: "listen_addresses = '*'"
       notify: Restart PostgreSQL
@@ -41,14 +44,14 @@
       notify: Restart PostgreSQL
 
     - name: Create database user
-      postgresql_user:
+      community.postgresql.postgresql_user:
         name: "{{ db_user }}"
         password: "{{ db_password }}"
         role_attr_flags: "SUPERUSER"
       become_user: postgres
 
     - name: Create support application database
-      postgresql_db:
+      community.postgresql.postgresql_db:
         name: "{{ db_name }}"
         owner: "{{ db_user }}"
       become_user: postgres
