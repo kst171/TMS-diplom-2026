@@ -20,14 +20,14 @@
         state: present
         update_cache: yes
 
-- name: Настройка listen_addresses в конфигурации PostgreSQL
+    - name: Настройка listen_addresses в конфигурации PostgreSQL
       lineinfile:
         path: /etc/postgresql/16/main/postgresql.conf 
         regexp: "^#?listen_addresses\\s*=\\s*"
         line: "listen_addresses = '*'"
       notify: Restart PostgreSQL
 
-- name: Настройка прав доступа в pg_hba.conf
+    - name: Настройка прав доступа в pg_hba.conf
       lineinfile:
         path: /etc/postgresql/16/main/pg_hba.conf
         line: "host    all             all             10.0.0.0/16            scram-sha-256"
