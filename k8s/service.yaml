@@ -1,12 +1,20 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: helpdesk-svc
+  name: helpdesk-service
+  namespace: default
+  annotations:
+    # Инструкция для облачного провайдера AWS на создание современного Network Load Balancer (NLB)
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "instance"
+  labels:
+    app: helpdesk-app
+    Project: fs_support_app
 spec:
-  type: LoadBalancer # Нативная интеграция с облачным балансировщиком AWS
+  type: LoadBalancer # Нативная автоматическая интеграция с балансировщиком AWS
   selector:
-    app: helpdesk-app  # Связывает балансировщик с подами деплоймента выше
+    app: helpdesk-app # Строгая связка балансировщика с подами из деплоймента
   ports:
     - protocol: TCP
-      port: 80          # Внешний порт для пользователей в браузере (HTTP)
-      targetPort: 8000  # Внутренний порт, на который перенаправляется трафик в под
+      port: 80         # Внешний HTTP-порт для проверки работы через браузер
+      targetPort: 8000 # Внутренний порт, на который NLB перенаправляет запросы в контейнер

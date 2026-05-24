@@ -2,18 +2,37 @@
 - name: Install and Configure PostgreSQL Natively on Ubuntu
   hosts: app_databases
   become: yes
-  gather_facts: false
+  gather_facts: true # Сбор системных фактов нужен для динамического вычисления путей к конфигам
+
   vars:
-    db_name: "fs_support_db"
-    db_user: "db_user"
-    db_password: "db_secure_password"
+    pg_version: "{{ ans_facts_version | default('16') }}"
+
+  pre_tasks:
+    # Динамически устанавливаем коллекцию на хост, с которого запускается Ansible
+    - name: Ensure community.postgresql collection is installed on runner
+      delegate_to: localhost
+      become: false
+      ansible.builtin.command: ansible-galaxy collection install community.postgresql
+      run_once: true
+
+    # Скрипт-детектор мажорной версии СУБД для гибкости путей
+    - name: Detect installed PostgreSQL version
+      shell: "psql --version | awk '{print $3}' | cut -d. -f1"
+      register: pg_version_detected
+      changed_when: false
+      failed_when: false
+
+    - name: Set postgres version variable
+      set_fact:
+        pg_version: "{{ pg_version_detected.stdout if pg_version_detected.stdout != '' else '16' }}"
+
   tasks:
-    - name: Install PostgreSQL server and contrib modules
+    - name: Install PostgreSQL server and python3-psycopg2
       apt:
         name: 
           - postgresql
           - postgresql-contrib
-          - python3-psycopg2
+          - python3-psycopg2 # Позволяет Ansible модулям управлять базой данных изнутри инстанса
         state: present
         update_cache: yes
       register: apt_result
@@ -21,7 +40,7 @@
       retries: 10
       delay: 15
 
-    - name: Ensure PostgreSQL is running and enabled at boot
+    - name: Ensure PostgreSQL is running and enabled
       systemd:
         name: postgresql
         state: started
@@ -29,30 +48,32 @@
 
     - name: Configure PostgreSQL to listen on all IP addresses
       lineinfile:
-        path: /etc/postgresql/16/main/postgresql.conf
+        path: "/etc/postgresql/{{ pg_version }}/main/postgresql.conf"
         regexp: "^#?listen_addresses\\s*="
         line: "listen_addresses = '*'"
       notify: Restart PostgreSQL
 
     - name: Allow connections from internal VPC network
       blockinfile:
-        path: /etc/postgresql/16/main/pg_hba.conf
+        path: "/etc/postgresql/{{ pg_version }}/main/pg_hba.conf"
         block: |
           # Разрешаем доступ из внутренней сети AWS VPC для Kubernetes
           host    all             all             10.0.0.0/16            scram-sha-256
       notify: Restart PostgreSQL
 
-    - name: Create database user
-      community.postgresql.postgresql_user:
-        name: "{{ db_user }}"
-        password: "{{ db_password }}"
-        role_attr_flags: "SUPERUSER"
-      become_user: postgres
-
     - name: Create support application database
       community.postgresql.postgresql_db:
         name: "{{ db_name }}"
-        owner: "{{ db_user }}"
+      become_user: postgres
+
+    # Продуктовая настройка прав: пользователь не получает деструктивного статуса SUPERUSER
+    - name: Create database user and grant privileges
+      community.postgresql.postgresql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        db: "{{ db_name }}"
+        priv: "ALL"
+        role_attr_flags: "NOSUPERUSER,CREATEDB"
       become_user: postgres
 
   handlers:

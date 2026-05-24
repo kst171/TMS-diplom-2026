@@ -3,8 +3,11 @@ kind: Deployment
 metadata:
   name: helpdesk-app
   namespace: default
+  labels:
+    app: helpdesk-app
+    Project: fs_support_app
 spec:
-  replicas: 1 # 1 реплика экономит ресурсы AWS и упрощает демонстрацию логов комиссии
+  replicas: 1 # Минимизирует потребление ресурсов t3.micro и упрощает демонстрацию логов
   selector:
     matchLabels:
       app: helpdesk-app
@@ -12,38 +15,51 @@ spec:
     metadata:
       labels:
         app: helpdesk-app
-    
     spec:
       containers:
         - name: app
-          # Пайплайн GitHub Actions сам заменит эту строчку на ваш Docker Hub репозиторий с нужным тегом
+          # Строка ниже автоматически модифицируется пайплайном GitHub Actions
           image: your-dockerhub-username/helpdesk-app:${IMAGE_TAG}
           imagePullPolicy: Always
           ports:
-            - containerPort: 8000 # Порт запуска Flask/Gunicorn внутри контейнера
+            - containerPort: 8000 # Порт, на котором Flask/Gunicorn слушает трафик внутри контейнера
 
-          
-          # Переносим настройки из вашего блока `web` и `.env` сюда напрямую
           env:
             - name: DB_HOST
-              value: "10.0.1.89"       # Приватный IP адрес вашей нативной базы на EC2
-            - name: DB_USER
-              value: "support_user"    # Значение из POSTGRES_USER в docker-compose
-            - name: DB_PASSWORD
-              value: "support_pass"    # Значение из POSTGRES_PASSWORD в docker-compose
-            - name: DB_NAME
-              value: "support_db"      # Значение из POSTGRES_DB в docker-compose
+              value: "10.0.1.89" # Статический приватный IP вашей нативной базы на EC2
+            - name: DB_PORT
+              value: "5432"
 
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: helpdesk-service
-  namespace: default
-spec:
-  type: LoadBalancer # AWS автоматически создаст Classic/Network Load Balancer
-  ports:
-  - port: 80         # Внешний порт для доступа из браузера (http://<IP_балансировщика>)
-    targetPort: 8000 # Внутренний порт, на который перенаправляется трафик в контейнер
-  selector:
-    app: helpdesk-app
+            # Безопасный импорт авторизационных данных из secret.yaml
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: helpdesk-secret
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: helpdesk-secret
+                  key: DB_PASSWORD
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: helpdesk-secret
+                  key: DB_NAME
+
+          # Проверка доступности (Healthcheck) приложения для демонстрации надежности перед комиссией
+          livenessProbe:
+            httpGet:
+              path: /health # Убедитесь, что этот роут возвращает HTTP 200 в коде Flask
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+
+          # Лимиты ресурсов защищают ноды кластера от перегрузки
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+            requests:
+              cpu: "250m"
+              memory: "256Mi"

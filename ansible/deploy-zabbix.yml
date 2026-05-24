@@ -3,6 +3,7 @@
   hosts: aws_zabbix_servers
   become: yes
   gather_facts: false
+
   tasks:
     - name: Update apt cache and install prerequisites
       apt:
@@ -12,9 +13,10 @@
           - curl
           - gnupg
           - lsb-release
+          - python3-pip
+          - python3-setuptools
         state: present
         update_cache: yes
-      # Защита от фонового cloud-init в AWS: пробуем 5 раз с паузой в 10 секунд
       register: apt_result
       until: apt_result is success
       retries: 5
@@ -22,7 +24,6 @@
 
     - name: Install Docker.io and Docker Compose Plugin
       apt:
-        # Устанавливаем современный плагин компрессии (docker-compose-v2 в Ubuntu)
         name: 
           - docker.io
           - docker-compose-v2
@@ -44,12 +45,11 @@
       copy:
         src: docker-compose.zabbix.yml
         dest: /opt/zabbix/docker-compose.yml
-      # Если файл поменяется, мы зафиксируем это для перезапуска контейнеров
-      register: compose_file
+        mode: '0644'
 
-    - name: Start Zabbix stack via Docker Compose
-      shell: docker compose up -d
-      args:
-        chdir: /opt/zabbix
-      # Выполнять команду только если контейнеры не запущены ИЛИ обновился файл конфигурации
-      when: compose_file.changed or (ansible_operator_meta is not defined)
+    # Декларативный запуск Docker-стека с автоматическим пуллингом свежих слоев образов
+    - name: Start or update Zabbix stack via Docker Compose
+      community.docker.docker_compose_v2:
+        project_src: /opt/zabbix
+        state: present
+        pull: always

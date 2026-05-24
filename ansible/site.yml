@@ -1,11 +1,10 @@
 ---
-# ansible/site.yml
-# Главный оркестратор развертывания инфраструктуры
+# Главный оркестратор развертывания инфраструктуры приложений
 
-# Шаг 1: Настраиваем сервер мониторинга Zabbix (Бастион)
+# Этап 1: Развертывание Docker-контейнеров Zabbix 7.0 на публичной EC2 ВМ
 - name: Import Zabbix deployment configuration
   import_playbook: deploy-zabbix.yml
 
-# Шаг 2: Настраиваем PostgreSQL в приватной подсети
+# Этап 2: Развертывание нативной PostgreSQL 16 в приватной подсети
 - name: Import PostgreSQL deployment configuration
   import_playbook: deploy-postgre-db.yml

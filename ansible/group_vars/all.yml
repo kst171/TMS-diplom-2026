@@ -1,11 +1,8 @@
 ---
-# Общие переменные для всех плейбуков
+# Общие глобальные переменные для конфигурации ОС и ПО
 ansible_python_interpreter: /usr/bin/python3
 
-# Настройки PostgreSQL
+# Реквизиты PostgreSQL для подключения целевого Flask приложения
 db_name: "fs_support_db"
 db_user: "db_user"
 db_password: "db_secure_password"
-
-# Указываем ПРИВАТНЫЙ IP Zabbix-сервера для агента базы данных
-zabbix_server_ip: "10.0.101.128"

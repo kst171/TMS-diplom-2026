@@ -30,7 +30,7 @@ services:
   zabbix-web:
     image: zabbix/zabbix-web-nginx-mysql:ubuntu-7.0-latest
     ports:
-      - "80:8080" # Внешний порт 80 (HTTP) для входа в админку
+      - "80:8080" # Внешний порт 80 для корректной работы AWS Security Group
     environment:
       ZBX_SERVER_HOST: zabbix-server
       DB_SERVER_HOST: zabbix-db
