@@ -67,15 +67,25 @@
         name: "{{ db_name }}"
       become_user: postgres
 
-    # Продуктовая настройка прав: пользователь не получает деструктивного статуса SUPERUSER
-    - name: Create database user and grant privileges
+    # Сначала создаем системного пользователя БД без лишних прав (Безопасный продакшн)
+    - name: Create database user
       community.postgresql.postgresql_user:
         name: "{{ db_user }}"
         password: "{{ db_password }}"
-        db: "{{ db_name }}"
-        priv: "ALL"
+        login_db: "{{ db_name }}" # Исправлено: db заменен на login_db
         role_attr_flags: "NOSUPERUSER,CREATEDB"
       become_user: postgres
+
+    # Отдельно выдаем права этому пользователю на созданную базу данных
+    - name: Grant privileges to database user
+      community.postgresql.postgresql_privs:
+        db: "{{ db_name }}"
+        role: "{{ db_user }}"
+        objs: "ALL_IN_SCHEMA"
+        privs: "ALL"
+        type: "schema"
+      become_user: postgres
+
 
   handlers:
     - name: Restart PostgreSQL
