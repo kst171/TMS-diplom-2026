@@ -37,15 +37,23 @@ resource "aws_security_group" "zabbix" {
 }
 
 resource "aws_instance" "zabbix_server" {
-  ami                         = "ami-067bcf851477ebb78" # Ubuntu 24.04 LTS
-  instance_type               = "t3.micro"               
-  subnet_id                   = module.vpc.public_subnets[0] # Исправлен выбор элемента массива
+  ami                         = "ami-067bcf851477ebb78" 
+  instance_type               = "t3.small" 
+  subnet_id                   = module.vpc.public_subnets[0] 
   vpc_security_group_ids      = [aws_security_group.zabbix.id]
   key_name                    = aws_key_pair.deployer.key_name
-  associate_public_ip_address = true 
+  associate_public_ip_address = true  
+
+  root_block_device {
+    volume_type           = "gp3"
+    volume_size           = 20
+    encrypted             = true
+    delete_on_termination = true
+  } 
 
   tags = { Name = "Zabbix-Server" }
 }
 
 output "zabbix_server_public_ip" { value = aws_instance.zabbix_server.public_ip }
 output "zabbix_server_private_ip" { value = aws_instance.zabbix_server.private_ip }
+
