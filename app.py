@@ -11,8 +11,22 @@ from models import db, Ticket, Comment
 load_dotenv()
 
 app = Flask(__name__)
+
+# ─── Динамическая сборка строки подключения к PostgreSQL ──────────────────────
+db_user     = os.getenv('DB_USER')
+db_password = os.getenv('DB_PASSWORD')
+db_name     = os.getenv('DB_NAME')
+db_host     = os.getenv('DB_HOST') # Сюда прилетит IP-адрес вашей машины EC2
+
+if db_user and db_password and db_name and db_host:
+    # Если запуск происходит в Kubernetes, собираем строку из раздельных переменных
+    SQLALCHEMY_DATABASE_URI = f"postgresql://{db_user}:{db_password}@{db_host}:5432/{db_name}"
+else:
+    # Если переменных нет (локальный запуск), используем стандартную цельную строку
+    SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', 'postgresql://postgres:password@localhost:5432/support_db')
+
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'postgresql://postgres:password@localhost:5432/support_db')
+app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
@@ -269,8 +283,8 @@ def localtime_filter(dt):
     local_dt = dt.astimezone(tz)
     return local_dt.strftime('%d.%m.%Y %H:%M')
 
-with app.app_context():
-    db.create_all()
+#with app.app_context():
+#    db.create_all()
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
