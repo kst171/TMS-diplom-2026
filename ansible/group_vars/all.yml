@@ -1,0 +1,11 @@
+---
+# Общие переменные для всех плейбуков
+ansible_python_interpreter: /usr/bin/python3
+
+# Настройки PostgreSQL
+db_name: "fs_support_db"
+db_user: "db_user"
+db_password: "db_secure_password"
+
+# Указываем ПРИВАТНЫЙ IP Zabbix-сервера для агента базы данных
+zabbix_server_ip: "10.0.101.128"

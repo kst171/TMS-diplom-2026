@@ -1,7 +1,8 @@
 ---
 - name: Install and Configure PostgreSQL Natively on Ubuntu
-  hosts: aws_zabbix_servers
+  hosts: app_databases
   become: yes
+  gather_facts: false
   vars:
     db_name: "fs_support_db"
     db_user: "db_user"
@@ -12,6 +13,11 @@
         name: [postgresql, postgresql-contrib, python3-psycopg2]
         state: present
         update_cache: yes
+
+        register: apt_result
+        until: apt_resilt is success
+        retries: 10
+        delay: 15
 
     - name: Ensure PostgreSQL is running and enabled at boot
       systemd:
