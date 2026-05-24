@@ -67,23 +67,19 @@
         name: "{{ db_name }}"
       become_user: postgres
 
-    # Сначала создаем системного пользователя БД без лишних прав (Безопасный продакшн)
+    # 1. Сначала создаем системного пользователя БД (БЕЗ деструктивного статуса SUPERUSER)
     - name: Create database user
       community.postgresql.postgresql_user:
         name: "{{ db_user }}"
         password: "{{ db_password }}"
-        login_db: "{{ db_name }}" # Исправлено: db заменен на login_db
-        role_attr_flags: "NOSUPERUSER,CREATEDB"
+        role_attr_flags: "NOSUPERUSER,CREATEDB" # Строка login_db полностью удалена
       become_user: postgres
 
-    # Отдельно выдаем права этому пользователю на созданную базу данных
-    - name: Grant privileges to database user
-      community.postgresql.postgresql_privs:
-        db: "{{ db_name }}"
-        role: "{{ db_user }}"
-        objs: "ALL_IN_SCHEMA"
-        privs: "ALL"
-        type: "schema"
+    # 2. Создаем базу данных и НАПРЯМУЮ назначаем этого пользователя ее владельцем (owner)
+    - name: Create support application database
+      community.postgresql.postgresql_db:
+        name: "{{ db_name }}"
+        owner: "{{ db_user }}" # Передаем права владения пользователю приложения
       become_user: postgres
 
 
