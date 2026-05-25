@@ -4,17 +4,18 @@ metadata:
   name: helpdesk-service
   namespace: default
   annotations:
-    # Инструкция для облачного провайдера AWS на создание современного Network Load Balancer (NLB)
-    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    # ИСПРАВЛЕНО: Меняем "external" на "nlb". Это заставит ядро Kubernetes 
+    # самостоятельно и мгновенно создать балансировщик в AWS, минуя сторонние аддоны
+    service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "instance"
   labels:
     app: helpdesk-app
     Project: fs_support_app
 spec:
-  type: LoadBalancer # Нативная автоматическая интеграция с балансировщиком AWS
+  type: LoadBalancer 
   selector:
-    app: helpdesk-app # Строгая связка балансировщика с подами из деплоймента
+    app: helpdesk-app 
   ports:
     - protocol: TCP
-      port: 80         # Внешний HTTP-порт для проверки работы через браузер
-      targetPort: 8000 # Внутренний порт, на который NLB перенаправляет запросы в контейнер
+      port: 80         
+      targetPort: 8000 

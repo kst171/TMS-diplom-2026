@@ -82,6 +82,10 @@
         owner: "{{ db_user }}" # Передаем права владения пользователю приложения
       become_user: postgres
 
+    - name: Force restart PostgreSQL to apply cloud socket configurations
+      systemd:
+        name: postgresql
+        state: restarted
 
   handlers:
     - name: Restart PostgreSQL
