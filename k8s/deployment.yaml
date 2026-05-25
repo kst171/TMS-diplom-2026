@@ -26,7 +26,11 @@ spec:
 
           env:
             - name: DB_HOST
-              value: "10.0.1.89" # Статический приватный IP вашей нативной базы на EC2
+              valueFrom:
+                secretKeyRef:
+                  name: helpdesk-secret
+                  key: DB_HOST
+            
             - name: DB_PORT
               value: "5432"
 
