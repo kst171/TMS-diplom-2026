@@ -119,19 +119,26 @@ jobs:
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name kst-diplom-eks-cluster --region eu-north-1
 
-          # Подставляем уникальный хэш коммита вместо переменной в манифесты Kubernetes и деплоим
+             # Подставляем уникальный хэш коммита вместо переменной в манифест Kubernetes и деплоим
       - name: Deploy to EKS
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: eu-north-1 # КРИТИЧНО: Форсируем регион для aws eks get-token
         run: |
           # 1. Модифицируем тег Docker-образа в деплойменте
           sed -i "s|your-dockerhub-username/helpdesk-app:\${IMAGE_TAG}|${{ secrets.DOCKERHUB_USERNAME }}/helpdesk-app:${{ github.sha }}|g" k8s/deployment.yaml
           
-          # 2. КРИТИЧНО: Принудительно обновляем kubeconfig для НОВОГО кластера перед вызовом kubectl
+          # 2. Принудительно генерируем свежий контекст kubeconfig строго внутри этой сессии
           aws eks update-kubeconfig --name kst-diplom-eks-cluster --region eu-north-1
           
-          # 3. Применяем полностью валидные манифесты в обновленный кластер EKS
-          kubectl apply -f k8s/secret.yaml
+          # 3. Применяем секреты с отключением внешней валидации openapi (обход бага credentials)
+          kubectl apply -f k8s/secret.yaml --validate=false
+          
+          # 4. Применяем остальные манифесты в обновленный кластер EKS
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/service.yaml
+
 
 
 
