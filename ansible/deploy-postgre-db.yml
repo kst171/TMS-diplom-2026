@@ -72,7 +72,7 @@
       community.postgresql.postgresql_user:
         name: "{{ db_user }}"
         password: "{{ db_password }}"
-        role_attr_flags: "NOSUPERUSER,CREATEDB" # Строка login_db полностью удалена
+        role_attr_flags: "NOSUPERUSER,CREATEDB"
       become_user: postgres
 
     # 2. Создаем базу данных и НАПРЯМУЮ назначаем этого пользователя ее владельцем (owner)

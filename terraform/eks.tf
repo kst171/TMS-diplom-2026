@@ -63,3 +63,55 @@ module "eks" {
     Project     = "fs_support_app"
   }
 }
+
+# Автоматическое прописывание раннера Actions в белый список Kubernetes
+resource "kubernetes_config_map_v1_data" "aws_auth" {
+  force = true
+  metadata {
+    name      = "aws-auth"
+    namespace = "kube-system"
+  }
+
+  data = {
+    # Исправлено: жестко прописываем пустой mapRoles, так как в EKS 1.31 
+    # управляемые ноды регистрируются через Access Entries автоматически
+    mapRoles = "[]"
+    
+    mapUsers = <<YAML
+- userarn: arn:aws:iam::372898429717:user/github-actions-user
+  username: github-actions-user
+  groups:
+    - system:masters
+YAML
+  }
+
+  depends_on = [module.eks]
+}
+
+# Автоматическое создание привязки прав ClusterAdmin на полный ARN
+# Исправлено: использован современный ресурс v1 для исключения Warning
+resource "kubernetes_cluster_role_binding_v1" "github_actions_arn_binding" {
+  metadata {
+    name = "github-actions-arn-binding"
+  }
+
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = "cluster-admin"
+  }
+
+  subject {
+    kind      = "User"
+    name      = "arn:aws:iam::372898429717:user/github-actions-user"
+    api_group = "rbac.authorization.k8s.io"
+  }
+
+  subject {
+    kind      = "User"
+    name      = "github-actions-user"
+    api_group = "rbac.authorization.k8s.io"
+  }
+
+  depends_on = [module.eks]
+}

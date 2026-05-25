@@ -8,7 +8,7 @@ metadata:
     Project: fs_support_app
 type: Opaque
 data:
-  DB_HOST: MTAuMC4xLjEwMA==
-  DB_USER: ZGJfdXNlcg==
-  DB_PASSWORD: ZGJfc2VjdXJlX3Bhc3N3b3Jk
-  DB_NAME: ZnNfc3VwcG9ydF9kYg==
+  DB_HOST: ${db_host_base64}
+  DB_USER: ${db_user_base64}
+  DB_PASSWORD: ${db_password_base64}
+  DB_NAME: ${db_name_base64}

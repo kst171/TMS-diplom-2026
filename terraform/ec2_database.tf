@@ -42,3 +42,16 @@ resource "aws_instance" "app_database" {
 }
 
 output "database_private_ip" { value = aws_instance.app_database.private_ip }
+
+# Автоматическая генерация secret.yaml со свежими Base64-данными
+resource "local_file" "k8s_secret" {
+  content = templatefile("${path.module}/../k8s/secret.yaml.tpl", {
+    # Считываем приватный IP инстанции и кодируем в Base64 на лету
+    db_host_base64     = base64encode(aws_instance.app_database.private_ip)
+    db_user_base64     = base64encode("db_user")
+    db_password_base64 = base64encode("db_secure_password")
+    db_name_base64     = base64encode("fs_support_db")
+  })
+  
+  filename = "${path.module}/../k8s/secret.yaml"
+}

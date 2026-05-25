@@ -4,8 +4,6 @@ metadata:
   name: helpdesk-service
   namespace: default
   annotations:
-    # ИСПРАВЛЕНО: Меняем "external" на "nlb". Это заставит ядро Kubernetes 
-    # самостоятельно и мгновенно создать балансировщик в AWS, минуя сторонние аддоны
     service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
     service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "instance"
   labels:
