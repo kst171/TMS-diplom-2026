@@ -27,7 +27,7 @@ jobs:
           EOF
 
       - name: Build and start containers
-        run: docker-compose up -d --build
+        run: docker compose up -d --build
 
       - name: Wait for app to be ready
         run: |
@@ -47,4 +47,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: docker-compose down -v
+        run: docker compose down -v
