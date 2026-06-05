@@ -69,3 +69,17 @@ class Comment(db.Model):
     text        = db.Column(db.Text, nullable=False)
     is_internal = db.Column(db.Boolean, default=False)
     created_at  = db.Column(db.DateTime, default=now_local)
+
+class RequestLog(db.Model):
+    __tablename__ = 'request_log'
+
+    id         = db.Column(db.Integer, primary_key=True)
+    method     = db.Column(db.String(10), nullable=False)
+    path       = db.Column(db.String(200), nullable=False)
+    status     = db.Column(db.Integer, nullable=False)
+    ip         = db.Column(db.String(50), nullable=False)
+    duration   = db.Column(db.Float, nullable=True)  # миллисекунды
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<RequestLog {self.method} {self.path} {self.status}>'
