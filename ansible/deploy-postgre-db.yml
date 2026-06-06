@@ -2,20 +2,15 @@
 - name: Install and Configure PostgreSQL Natively on Ubuntu
   hosts: app_databases
   become: yes
-  gather_facts: true # Сбор системных фактов нужен для динамического вычисления путей к конфигам
-
-  vars:
-    pg_version: "{{ ans_facts_version | default('16') }}"
+  gather_facts: true
 
   pre_tasks:
-    # Динамически устанавливаем коллекцию на хост, с которого запускается Ansible
     - name: Ensure community.postgresql collection is installed on runner
       delegate_to: localhost
       become: false
       ansible.builtin.command: ansible-galaxy collection install community.postgresql
       run_once: true
 
-    # Скрипт-детектор мажорной версии СУБД для гибкости путей
     - name: Detect installed PostgreSQL version
       shell: "psql --version | awk '{print $3}' | cut -d. -f1"
       register: pg_version_detected
@@ -29,7 +24,7 @@
   tasks:
     - name: Install PostgreSQL server and python3-psycopg2
       apt:
-        name: 
+        name:
           - postgresql
           - postgresql-contrib
           - python3-psycopg2
@@ -46,42 +41,12 @@
         name: "postgresql@{{ pg_version }}-main"
         state: started
         enabled: yes
-      failed_when: false
-    
-    - name: Check PostgreSQL status
-      command: systemctl status postgresql
-      register: pg_status
-      failed_when: false
-      changed_when: false
 
-    - name: Show PostgreSQL status
-      debug:
-        var: pg_status.stdout_lines
-
-    - name: Wait for PostgreSQL to be ready
+    - name: Wait for PostgreSQL socket
       wait_for:
         path: /var/run/postgresql/.s.PGSQL.5432
         state: present
         timeout: 60
-    
-    - name: Find real PostgreSQL service name
-      shell: systemctl list-units --type=service | grep postgres
-      register: pg_services
-      changed_when: false
-      failed_when: false
-
-    - name: Show PostgreSQL services
-      debug:
-        var: pg_services.stdout_lines
-
-    - name: Start real PostgreSQL service
-      shell: |
-        PG_SERVICE=$(systemctl list-units --type=service | grep 'postgresql@' | awk '{print $1}' | head -1)
-        if [ -n "$PG_SERVICE" ]; then
-          systemctl start $PG_SERVICE
-          systemctl enable $PG_SERVICE
-        fi
-      become: yes
 
     - name: Configure PostgreSQL to listen on all IP addresses
       lineinfile:
@@ -98,12 +63,15 @@
           host    all             all             10.0.0.0/16            scram-sha-256
       notify: Restart PostgreSQL
 
-    - name: Create support application database
-      community.postgresql.postgresql_db:
-        name: "{{ db_name }}"
-      become_user: postgres
+    - name: Flush handlers before DB operations
+      meta: flush_handlers
 
-    # 1. Сначала создаем системного пользователя БД (БЕЗ деструктивного статуса SUPERUSER)
+    - name: Wait for PostgreSQL socket after restart
+      wait_for:
+        path: /var/run/postgresql/.s.PGSQL.5432
+        state: present
+        timeout: 30
+
     - name: Create database user
       community.postgresql.postgresql_user:
         name: "{{ db_user }}"
@@ -111,17 +79,11 @@
         role_attr_flags: "NOSUPERUSER,CREATEDB"
       become_user: postgres
 
-    # 2. Создаем базу данных и НАПРЯМУЮ назначаем этого пользователя ее владельцем (owner)
     - name: Create support application database
       community.postgresql.postgresql_db:
         name: "{{ db_name }}"
-        owner: "{{ db_user }}" # Передаем права владения пользователю приложения
+        owner: "{{ db_user }}"
       become_user: postgres
-
-    - name: Force restart PostgreSQL to apply cloud socket configurations
-      systemd:
-        name: "postgresql@{{ pg_version }}-main"
-        state: restarted
 
   handlers:
     - name: Restart PostgreSQL
