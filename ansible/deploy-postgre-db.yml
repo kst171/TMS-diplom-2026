@@ -43,7 +43,7 @@
 
     - name: Ensure PostgreSQL is running and enabled
       systemd:
-        name: postgresql
+        name: "postgresql@{{ pg_version }}-main"
         state: started
         enabled: yes
     
@@ -119,11 +119,11 @@
 
     - name: Force restart PostgreSQL to apply cloud socket configurations
       systemd:
-        name: postgresql
+        name: "postgresql@{{ pg_version }}-main"
         state: restarted
 
   handlers:
     - name: Restart PostgreSQL
       systemd:
-        name: postgresql
+        name: "postgresql@{{ pg_version }}-main"
         state: restarted
