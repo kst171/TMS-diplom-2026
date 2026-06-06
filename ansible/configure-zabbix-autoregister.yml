@@ -60,10 +60,10 @@
                   value: "Linux AWS EC2"
             operations:
               - operationtype: 2
-                opgroup:
+                opgroups:
                   - groupid: "2"
               - operationtype: 4
-                optemplate:
+                optemplates:
                   - templateid: "10001"
           auth: "{{ zabbix_auth }}"
           id: 3
