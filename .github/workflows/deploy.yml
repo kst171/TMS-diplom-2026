@@ -158,6 +158,11 @@ jobs:
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name kst-diplom-eks-cluster --region eu-north-1
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      
       - name: Generate k8s/secret.yaml from Terraform outputs
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
