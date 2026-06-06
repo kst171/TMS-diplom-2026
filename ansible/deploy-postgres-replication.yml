@@ -7,7 +7,6 @@
   vars:
     pg_version: "16"
     replication_user: "replicator"
-    replication_password: "{{ replication_password }}"
     primary_ip: "{{ hostvars['app-database']['ansible_host'] }}"
 
   pre_tasks:
@@ -80,12 +79,13 @@
 
     - name: Clone primary data to replica via pg_basebackup
       shell: >
-        PGPASSWORD="{{ replication_password }}"
         pg_basebackup
         -h {{ primary_ip }}
         -U {{ replication_user }}
         -D /var/lib/postgresql/{{ pg_version }}/main
         -P -Xs -R
+      environment:
+        PGPASSWORD: "{{ replication_password }}"
       become_user: postgres
       when: pg_role == 'replica'
 
