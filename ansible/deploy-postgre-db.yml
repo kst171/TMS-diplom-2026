@@ -46,6 +46,12 @@
         name: postgresql
         state: started
         enabled: yes
+    
+    - name: Wait for PostgreSQL to be ready
+      wait_for:
+        path: /var/run/postgresql/.s.PGSQL.5432
+        state: present
+        timeout: 30
 
     - name: Configure PostgreSQL to listen on all IP addresses
       lineinfile:
