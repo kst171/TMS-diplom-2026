@@ -66,6 +66,44 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Generate inventory.ini from Terraform outputs
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: eu-north-1
+          TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+        run: |
+          cd terraform/
+          terraform init
+
+          ZABBIX_IP=$(terraform output -raw zabbix_public_ip)
+          PRIMARY_IP=$(terraform output -raw database_primary_ip)
+          REPLICA_IP=$(terraform output -raw database_replica_ip)
+
+          cat > ../ansible/inventory.ini << EOF
+          [aws_zabbix_servers]
+          zabbix-server ansible_host=${ZABBIX_IP} ansible_user=ubuntu
+
+          [app_databases]
+          app-database         ansible_host=${PRIMARY_IP} ansible_user=ubuntu pg_role=primary
+          app-database-replica ansible_host=${REPLICA_IP} ansible_user=ubuntu pg_role=replica
+
+          [app_databases:vars]
+          ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ForwardAgent=yes -o ProxyCommand="ssh -W %h:%p -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${ZABBIX_IP}"'
+
+          [all:vars]
+          ansible_ssh_private_key_file=""
+          ansible_python_interpreter=/usr/bin/python3
+          EOF
+
+          echo "Generated inventory.ini:"
+          cat ../ansible/inventory.ini
+
       # Запуск автоматизации Ansible по сгенерированному из Terraform инвентарю
       - name: Run Ansible Playbook
         env:
