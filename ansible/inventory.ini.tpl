@@ -1,5 +1,5 @@
 [aws_zabbix_servers]
-zabbix-server ansible_host=${zabbix_public_ip} ansible_user=ubuntu
+zabbix-server ansible_host=${zabbix_public_ip} zabbix_private_ip=${zabbix_private_ip} ansible_user=ubuntu
 
 [app_databases]
 app-database         ansible_host=${database_primary_ip} ansible_user=ubuntu pg_role=primary
