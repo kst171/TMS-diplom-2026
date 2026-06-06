@@ -48,10 +48,10 @@
         enabled: yes
     
     - name: Check PostgreSQL status
-          command: systemctl status postgresql
-          register: pg_status
-          failed_when: false
-          changed_when: false
+      command: systemctl status postgresql
+      register: pg_status
+      failed_when: false
+      changed_when: false
 
     - name: Show PostgreSQL status
       debug:
