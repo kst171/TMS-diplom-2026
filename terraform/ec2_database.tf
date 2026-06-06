@@ -56,6 +56,16 @@ resource "local_file" "k8s_secret" {
   filename = "${path.module}/../k8s/secret.yaml"
 }
 
+resource "local_file" "ansible_inventory" {
+  content = templatefile("${path.module}/../ansible/inventory.ini.tpl", {
+    zabbix_public_ip     = aws_instance.zabbix_server.public_ip
+    database_primary_ip  = aws_instance.app_database.private_ip
+    database_replica_ip  = aws_instance.app_database_replica.private_ip
+  })
+
+  filename = "${path.module}/../ansible/inventory.ini"
+}
+
 resource "aws_instance" "app_database_replica" {
   ami                    = "ami-067bcf851477ebb78"
   instance_type          = "t3.micro"
