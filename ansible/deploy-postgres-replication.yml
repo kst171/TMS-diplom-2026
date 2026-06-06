@@ -76,6 +76,52 @@
       when: pg_role == 'primary'
 
     # ── REPLICA ──────────────────────────────────────────────────────────────
+    - name: Check if replica is already configured
+      stat:
+        path: "/var/lib/postgresql/{{ pg_version }}/main/standby.signal"
+      register: standby_signal
+      when: pg_role == 'replica'
+
+    - name: Stop PostgreSQL on replica
+      systemd:
+        name: "postgresql@{{ pg_version }}-main"
+        state: stopped
+      when: pg_role == 'replica' and not standby_signal.stat.exists
+
+    - name: Clear replica data directory
+      file:
+        path: "/var/lib/postgresql/{{ pg_version }}/main"
+        state: absent
+      when: pg_role == 'replica' and not standby_signal.stat.exists
+
+    - name: Clone primary data to replica via pg_basebackup
+      shell: >
+        pg_basebackup
+        -h {{ primary_ip }}
+        -U {{ replication_user }}
+        -D /var/lib/postgresql/{{ pg_version }}/main
+        -P -Xs -R
+      environment:
+        PGPASSWORD: "{{ replication_password }}"
+      become_user: postgres
+      when: pg_role == 'replica' and not standby_signal.stat.exists
+
+    - name: Set correct permissions on replica data directory
+      file:
+        path: "/var/lib/postgresql/{{ pg_version }}/main"
+        owner: postgres
+        group: postgres
+        mode: '0700'
+        recurse: yes
+      when: pg_role == 'replica' and not standby_signal.stat.exists
+
+    - name: Start PostgreSQL on replica
+      systemd:
+        name: "postgresql@{{ pg_version }}-main"
+        state: started
+        enabled: yes
+      when: pg_role == 'replica'
+    
     - name: Stop PostgreSQL on replica
       systemd:
         name: "postgresql@{{ pg_version }}-main"
