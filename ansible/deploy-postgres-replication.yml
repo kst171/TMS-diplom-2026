@@ -56,6 +56,17 @@
       when: pg_role == 'primary'
       notify: Restart PostgreSQL
 
+    - name: Flush handlers before creating replication user
+      meta: flush_handlers
+      when: pg_role == 'primary'
+
+    - name: Wait for PostgreSQL socket after restart (primary)
+      wait_for:
+        path: /var/run/postgresql/.s.PGSQL.5432
+        state: present
+        timeout: 30
+      when: pg_role == 'primary'
+
     - name: Create replication user (primary only)
       community.postgresql.postgresql_user:
         name: "{{ replication_user }}"
@@ -67,7 +78,7 @@
     # ── REPLICA ──────────────────────────────────────────────────────────────
     - name: Stop PostgreSQL on replica
       systemd:
-        name: postgresql
+        name: "postgresql@{{ pg_version }}-main"
         state: stopped
       when: pg_role == 'replica'
 
@@ -100,7 +111,7 @@
 
     - name: Start PostgreSQL on replica
       systemd:
-        name: postgresql
+        name: "postgresql@{{ pg_version }}-main"
         state: started
         enabled: yes
       when: pg_role == 'replica'
@@ -108,5 +119,5 @@
   handlers:
     - name: Restart PostgreSQL
       systemd:
-        name: postgresql
+        name: "postgresql@{{ pg_version }}-main"
         state: restarted
