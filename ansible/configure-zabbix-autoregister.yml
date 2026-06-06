@@ -1,0 +1,74 @@
+---
+- name: Configure Zabbix Auto Registration
+  hosts: aws_zabbix_servers
+  become: yes
+  gather_facts: false
+
+  tasks:
+    - name: Wait for Zabbix API to be ready
+      uri:
+        url: "http://localhost/api_jsonrpc.php"
+        method: POST
+        body_format: json
+        body:
+          jsonrpc: "2.0"
+          method: "apiinfo.version"
+          params: {}
+          id: 1
+        status_code: 200
+      register: zabbix_api
+      until: zabbix_api.status == 200
+      retries: 10
+      delay: 15
+
+    - name: Login to Zabbix API
+      uri:
+        url: "http://localhost/api_jsonrpc.php"
+        method: POST
+        body_format: json
+        body:
+          jsonrpc: "2.0"
+          method: "user.login"
+          params:
+            username: "Admin"
+            password: "zabbix"
+          id: 2
+        status_code: 200
+      register: zabbix_login
+
+    - name: Set Zabbix auth token
+      set_fact:
+        zabbix_auth: "{{ zabbix_login.json.result }}"
+
+    - name: Create Auto Registration action
+      uri:
+        url: "http://localhost/api_jsonrpc.php"
+        method: POST
+        body_format: json
+        body:
+          jsonrpc: "2.0"
+          method: "action.create"
+          params:
+            name: "Auto Register Linux Hosts"
+            eventsource: 2
+            status: 0
+            filter:
+              evaltype: 0
+              conditions:
+                - conditiontype: 24
+                  operator: 2
+                  value: "Linux AWS EC2"
+            operations:
+              - operationtype: 2
+                opgroup:
+                  - groupid: "2"
+              - operationtype: 4
+                optemplate:
+                  - templateid: "10001"
+          auth: "{{ zabbix_auth }}"
+          id: 3
+        status_code: 200
+      register: autoregister_result
+      failed_when: >
+        autoregister_result.json.error is defined and
+        'already exists' not in (autoregister_result.json.error.data | default(''))

@@ -16,3 +16,7 @@
 # Этап 4: Установка Zabbix агентов на все хосты
 - name: Import Zabbix agents deployment
   import_playbook: deploy-zabbix-agents.yml  
+
+# Этап 5: Настройка автоматической регистрации в Zabbix
+- name: Configure Zabbix auto registration
+  import_playbook: configure-zabbix-autoregister.yml  
