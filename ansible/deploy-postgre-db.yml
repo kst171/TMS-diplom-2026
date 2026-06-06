@@ -47,11 +47,21 @@
         state: started
         enabled: yes
     
+    - name: Check PostgreSQL status
+          command: systemctl status postgresql
+          register: pg_status
+          failed_when: false
+          changed_when: false
+
+    - name: Show PostgreSQL status
+      debug:
+        var: pg_status.stdout_lines
+
     - name: Wait for PostgreSQL to be ready
       wait_for:
         path: /var/run/postgresql/.s.PGSQL.5432
         state: present
-        timeout: 30
+        timeout: 60
 
     - name: Configure PostgreSQL to listen on all IP addresses
       lineinfile:
