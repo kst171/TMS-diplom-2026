@@ -1,0 +1,16 @@
+# Zabbix Agent2 configuration
+PidFile=/run/zabbix/zabbix_agent2.pid
+LogFile=/var/log/zabbix/zabbix_agent2.log
+LogFileSize=0
+
+# Адрес Zabbix сервера
+Server={{ zabbix_server_ip }}
+ServerActive={{ zabbix_server_ip }}
+
+# Имя хоста — автоматически берётся из системы
+Hostname={{ ansible_hostname }}
+
+# Автоматическая регистрация с метаданными
+HostMetadata=Linux AWS EC2
+
+Include=/etc/zabbix/zabbix_agent2.d/*.conf

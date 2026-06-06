@@ -12,3 +12,7 @@
 # Этап 3: Настройка streaming replication между primary и replica
 - name: Import PostgreSQL replication configuration
   import_playbook: deploy-postgres-replication.yml
+
+# Этап 4: Установка Zabbix агентов на все хосты
+- name: Import Zabbix agents deployment
+  import_playbook: deploy-zabbix-agents.yml  
