@@ -46,6 +46,7 @@
         name: "postgresql@{{ pg_version }}-main"
         state: started
         enabled: yes
+      failed_when: false
     
     - name: Check PostgreSQL status
       command: systemctl status postgresql
