@@ -40,6 +40,12 @@ module "eks" {
 
       create_access_entry = true
 
+      tags = {
+        Name        = "EKS-Worker-Node"
+        Environment = "diplom"
+        Project     = "fs_support_app"
+      }
+
       iam_role_additional_policies = {
         AmazonEC2ContainerRegistryReadOnly = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
         AmazonEKS_CNI_Policy               = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
