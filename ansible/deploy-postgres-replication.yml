@@ -109,26 +109,6 @@
         recurse: yes
       when: pg_role == 'replica'
 
-    - name: Check PostgreSQL data directory on replica
-      shell: ls -la /var/lib/postgresql/{{ pg_version }}/main/
-      register: pg_data_dir
-      changed_when: false
-      failed_when: false
-
-    - name: Show data directory contents
-      debug:
-        var: pg_data_dir.stdout_lines
-
-    - name: Get PostgreSQL journal logs
-      shell: journalctl -xeu postgresql@{{ pg_version }}-main --no-pager -n 20
-      register: pg_journal
-      changed_when: false
-      failed_when: false
-
-    - name: Show journal logs
-      debug:
-        var: pg_journal.stdout_lines
-    
     - name: Start PostgreSQL on replica
       systemd:
         name: "postgresql@{{ pg_version }}-main"
