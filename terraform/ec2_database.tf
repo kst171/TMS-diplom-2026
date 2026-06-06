@@ -41,8 +41,6 @@ resource "aws_instance" "app_database" {
   tags = { Name = "App-Database" }
 }
 
-output "database_private_ip" { value = aws_instance.app_database.private_ip }
-
 # Автоматическая генерация secret.yaml со свежими Base64-данными
 resource "local_file" "k8s_secret" {
   content = templatefile("${path.module}/../k8s/secret.yaml.tpl", {
@@ -74,8 +72,4 @@ resource "aws_instance" "app_database_replica" {
   key_name               = aws_key_pair.deployer.key_name
 
   tags = { Name = "App-Database-Replica" }
-}
-
-output "database_replica_private_ip" {
-  value = aws_instance.app_database_replica.private_ip
 }
