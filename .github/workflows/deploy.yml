@@ -159,7 +159,34 @@ jobs:
       - name: Update kubeconfig
         run: aws eks update-kubeconfig --name kst-diplom-eks-cluster --region eu-north-1
 
-             
+      - name: Generate k8s/secret.yaml from Terraform outputs
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: eu-north-1
+          TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
+        run: |
+          cd terraform/
+          terraform init
+          
+          PRIMARY_IP=$(terraform output -raw database_primary_ip)
+          
+          cat > ../k8s/secret.yaml << EOF
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: helpdesk-secret
+          type: Opaque
+          data:
+            DB_HOST: $(echo -n "${PRIMARY_IP}" | base64 -w 0)
+            DB_USER: $(echo -n "db_user" | base64 -w 0)
+            DB_PASSWORD: $(echo -n "${{ secrets.DB_PASSWORD }}" | base64 -w 0)
+            DB_NAME: $(echo -n "fs_support_db" | base64 -w 0)
+          EOF
+          
+          echo "Generated secret.yaml:"
+          cat ../k8s/secret.yaml 
+        
       # Подставляем уникальный хэш коммита вместо переменной в манифест Kubernetes и деплоим
       - name: Deploy to EKS
         env:
