@@ -43,6 +43,60 @@ with app.app_context():
     except Exception as e:
         print(f"Ошибка автоматического создания таблиц: {e}")
 
+import time
+from models import db, Ticket, Comment, RequestLog
+
+# Запоминаем время начала запроса
+@app.before_request
+def start_timer():
+    request._start_time = time.time()
+
+# После каждого запроса пишем лог в БД
+@app.after_request
+def log_request(response):
+    # Пропускаем статику чтобы не засорять логи
+    if request.path.startswith('/static'):
+        return response
+    
+    duration = (time.time() - request._start_time) * 1000  # в миллисекундах
+    
+    try:
+        log = RequestLog(
+            method   = request.method,
+            path     = request.path,
+            status   = response.status_code,
+            ip       = request.remote_addr,
+            duration = round(duration, 2),
+        )
+        db.session.add(log)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+    
+    return response
+
+@app.route('/logs')
+def logs():
+    page = request.args.get('page', 1, type=int)
+    method_filter = request.args.get('method', 'all')
+    status_filter = request.args.get('status', 'all')
+
+    query = RequestLog.query
+
+    if method_filter != 'all':
+        query = query.filter_by(method=method_filter)
+    if status_filter == '2xx':
+        query = query.filter(RequestLog.status.between(200, 299))
+    elif status_filter == '4xx':
+        query = query.filter(RequestLog.status.between(400, 499))
+    elif status_filter == '5xx':
+        query = query.filter(RequestLog.status.between(500, 599))
+
+    logs_paginated = query.order_by(RequestLog.created_at.desc()).paginate(page=page, per_page=50)
+
+    return render_template('logs.html', logs=logs_paginated,
+                           method_filter=method_filter,
+                           status_filter=status_filter)
 
 def generate_ticket_number():
     """Генерация уникального номера обращения вида FS-2024-XXXXX"""

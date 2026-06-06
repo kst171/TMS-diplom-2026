@@ -54,6 +54,3 @@ resource "aws_instance" "zabbix_server" {
   tags = { Name = "Zabbix-Server" }
 }
 
-output "zabbix_server_public_ip" { value = aws_instance.zabbix_server.public_ip }
-output "zabbix_server_private_ip" { value = aws_instance.zabbix_server.private_ip }
-

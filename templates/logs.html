@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Логи запросов — HelpDesk Pro{% endblock %}
+{% block breadcrumb %}
+  <span class="breadcrumb">Логи запросов</span>
+{% endblock %}
+
+{% block content %}
+<div class="form-page">
+  <div class="page-header">
+    <h1 class="page-title">Логи запросов</h1>
+    <p class="page-sub">История всех HTTP-запросов к приложению</p>
+  </div>
+
+  <!-- Фильтры -->
+  <form method="GET" action="{{ url_for('logs') }}" class="filter-bar" style="margin-bottom:1.5rem; display:flex; gap:1rem; flex-wrap:wrap;">
+    <select name="method" class="form-select" style="width:auto;" onchange="this.form.submit()">
+      <option value="all" {% if method_filter == 'all' %}selected{% endif %}>Все методы</option>
+      <option value="GET"  {% if method_filter == 'GET'  %}selected{% endif %}>GET</option>
+      <option value="POST" {% if method_filter == 'POST' %}selected{% endif %}>POST</option>
+    </select>
+    <select name="status" class="form-select" style="width:auto;" onchange="this.form.submit()">
+      <option value="all" {% if status_filter == 'all' %}selected{% endif %}>Все статусы</option>
+      <option value="2xx" {% if status_filter == '2xx' %}selected{% endif %}>2xx — Успех</option>
+      <option value="4xx" {% if status_filter == '4xx' %}selected{% endif %}>4xx — Ошибка клиента</option>
+      <option value="5xx" {% if status_filter == '5xx' %}selected{% endif %}>5xx — Ошибка сервера</option>
+    </select>
+    {% if method_filter != 'all' or status_filter != 'all' %}
+      <a href="{{ url_for('logs') }}" class="btn-cancel" style="padding:0.4rem 1rem;">Сбросить</a>
+    {% endif %}
+  </form>
+
+  <!-- Таблица -->
+  <div class="tickets-table-wrap">
+    <table class="tickets-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Время</th>
+          <th>Метод</th>
+          <th>Путь</th>
+          <th>Статус</th>
+          <th>IP</th>
+          <th>Время (мс)</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs.items %}
+        <tr>
+          <td>{{ log.id }}</td>
+          <td style="white-space:nowrap;">{{ log.created_at | localtime }}</td>
+          <td>
+            <span class="badge {% if log.method == 'POST' %}badge-warning{% else %}badge-info{% endif %}">
+              {{ log.method }}
+            </span>
+          </td>
+          <td><code>{{ log.path }}</code></td>
+          <td>
+            <span class="badge
+              {% if log.status < 300 %}badge-success
+              {% elif log.status < 400 %}badge-info
+              {% elif log.status < 500 %}badge-warning
+              {% else %}badge-danger{% endif %}">
+              {{ log.status }}
+            </span>
+          </td>
+          <td>{{ log.ip }}</td>
+          <td>{{ log.duration }}</td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" style="text-align:center; padding:2rem; opacity:0.5;">Логов пока нет</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Пагинация -->
+  {% if logs.pages > 1 %}
+  <div class="pagination" style="margin-top:1rem; display:flex; gap:0.5rem;">
+    {% if logs.has_prev %}
+      <a href="{{ url_for('logs', page=logs.prev_num, method=method_filter, status=status_filter) }}" class="btn-cancel">← Назад</a>
+    {% endif %}
+    <span style="padding:0.4rem 1rem; opacity:0.6;">{{ logs.page }} / {{ logs.pages }}</span>
+    {% if logs.has_next %}
+      <a href="{{ url_for('logs', page=logs.next_num, method=method_filter, status=status_filter) }}" class="btn-cancel">Вперёд →</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

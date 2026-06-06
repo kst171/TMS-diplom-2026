@@ -41,8 +41,6 @@ resource "aws_instance" "app_database" {
   tags = { Name = "App-Database" }
 }
 
-output "database_private_ip" { value = aws_instance.app_database.private_ip }
-
 # Автоматическая генерация secret.yaml со свежими Base64-данными
 resource "local_file" "k8s_secret" {
   content = templatefile("${path.module}/../k8s/secret.yaml.tpl", {
@@ -54,4 +52,24 @@ resource "local_file" "k8s_secret" {
   })
   
   filename = "${path.module}/../k8s/secret.yaml"
+}
+
+resource "local_file" "ansible_inventory" {
+  content = templatefile("${path.module}/../ansible/inventory.ini.tpl", {
+    zabbix_public_ip     = aws_instance.zabbix_server.public_ip
+    database_primary_ip  = aws_instance.app_database.private_ip
+    database_replica_ip  = aws_instance.app_database_replica.private_ip
+  })
+
+  filename = "${path.module}/../ansible/inventory.ini"
+}
+
+resource "aws_instance" "app_database_replica" {
+  ami                    = "ami-067bcf851477ebb78"
+  instance_type          = "t3.micro"
+  subnet_id              = module.vpc.private_subnets[0]
+  vpc_security_group_ids = [aws_security_group.database.id]
+  key_name               = aws_key_pair.deployer.key_name
+
+  tags = { Name = "App-Database-Replica" }
 }

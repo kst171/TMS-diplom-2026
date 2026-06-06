@@ -8,8 +8,9 @@ terraform/.terraform/
 terraform/*.tfstate
 terraform/*.tfstate.backup
 terraform/.terraform.lock.hcl
+terraform/*.tfvars
 
-#ansible/inventory.ini
+ansible/inventory.ini
 
 k8s/db-config.yaml
 helpdesk-app.tar
