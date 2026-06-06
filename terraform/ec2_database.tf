@@ -55,3 +55,17 @@ resource "local_file" "k8s_secret" {
   
   filename = "${path.module}/../k8s/secret.yaml"
 }
+
+resource "aws_instance" "app_database_replica" {
+  ami                    = "ami-067bcf851477ebb78"
+  instance_type          = "t3.micro"
+  subnet_id              = module.vpc.private_subnets[0]
+  vpc_security_group_ids = [aws_security_group.database.id]
+  key_name               = aws_key_pair.deployer.key_name
+
+  tags = { Name = "App-Database-Replica" }
+}
+
+output "database_replica_private_ip" {
+  value = aws_instance.app_database_replica.private_ip
+}

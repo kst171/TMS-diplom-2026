@@ -8,3 +8,7 @@
 # Этап 2: Развертывание нативной PostgreSQL 16 в приватной подсети
 - name: Import PostgreSQL deployment configuration
   import_playbook: deploy-postgre-db.yml
+
+# Этап 3: Настройка streaming replication между primary и replica
+- name: Import PostgreSQL replication configuration
+  import_playbook: deploy-postgres-replication.yml
