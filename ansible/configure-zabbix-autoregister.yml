@@ -59,11 +59,11 @@
                   operator: 2
                   value: "Linux AWS EC2"
             operations:
-              - operationtype: 2
-                opgroups:
-                  - groupid: "2"
               - operationtype: 4
-                optemplates:
+                opgroup:
+                  - groupid: "2"
+              - operationtype: 6
+                optemplate:
                   - templateid: "10001"
           auth: "{{ zabbix_auth }}"
           id: 3
