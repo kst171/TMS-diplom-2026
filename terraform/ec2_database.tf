@@ -57,10 +57,10 @@ resource "local_file" "k8s_secret" {
 resource "local_file" "ansible_inventory" {
   content = templatefile("${path.module}/../ansible/inventory.ini.tpl", {
     zabbix_public_ip     = aws_instance.zabbix_server.public_ip
+    zabbix_private_ip    = aws_instance.zabbix_server.private_ip
     database_primary_ip  = aws_instance.app_database.private_ip
     database_replica_ip  = aws_instance.app_database_replica.private_ip
   })
-
   filename = "${path.module}/../ansible/inventory.ini"
 }
 
