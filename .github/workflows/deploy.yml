@@ -147,8 +147,7 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/helpdesk-app:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/helpdesk-app:${{ github.sha }}
-
+            
       - name: Configure AWS credentials for EKS
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -196,7 +195,7 @@ jobs:
           TF_VAR_aws_account_id: ${{ secrets.AWS_ACCOUNT_ID }}
         run: |
           # 1. Модифицируем тег Docker-образа в деплойменте
-          sed -i "s|your-dockerhub-username/helpdesk-app:\${IMAGE_TAG}|${{ secrets.DOCKERHUB_USERNAME }}/helpdesk-app:${{ github.sha }}|g" k8s/deployment.yaml
+          sed -i "s|your-dockerhub-username/helpdesk-app:\${IMAGE_TAG}|${{ secrets.DOCKERHUB_USERNAME }}/helpdesk-app:latest|g" k8s/deployment.yaml
           
           # 2. Обновляем kubeconfig, явно указывая AWS CLI использовать системную роль создателя кластера
           # Это мгновенно дает раннеру права администратора (ClusterAdmin), так как создатель кластера всегда имеет полный доступ по умолчанию
