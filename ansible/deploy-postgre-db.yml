@@ -62,6 +62,25 @@
         path: /var/run/postgresql/.s.PGSQL.5432
         state: present
         timeout: 60
+    
+    - name: Find real PostgreSQL service name
+      shell: systemctl list-units --type=service | grep postgres
+      register: pg_services
+      changed_when: false
+      failed_when: false
+
+    - name: Show PostgreSQL services
+      debug:
+        var: pg_services.stdout_lines
+
+    - name: Start real PostgreSQL service
+      shell: |
+        PG_SERVICE=$(systemctl list-units --type=service | grep 'postgresql@' | awk '{print $1}' | head -1)
+        if [ -n "$PG_SERVICE" ]; then
+          systemctl start $PG_SERVICE
+          systemctl enable $PG_SERVICE
+        fi
+      become: yes
 
     - name: Configure PostgreSQL to listen on all IP addresses
       lineinfile:
