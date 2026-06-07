@@ -1,11 +1,11 @@
 ---
 - name: Install and Configure Zabbix Agent on all hosts
-  hosts: app_databases
+  hosts: app_databases, aws_zabbix_servers
   become: yes
   gather_facts: true
 
   vars:
-    zabbix_server_ip: "{{ hostvars['zabbix-server']['zabbix_private_ip'] }}"
+    zabbix_server_ip: "{{ '127.0.0.1' if inventory_hostname == 'zabbix-server' else hostvars['zabbix-server']['zabbix_private_ip'] }}"
     zabbix_version: "7.0"
 
   tasks:
