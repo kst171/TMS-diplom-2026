@@ -59,6 +59,8 @@ jobs:
             --cidr "${RUNNER_IP}/32"
           
           echo "Доступ по порту 22 для $RUNNER_IP успешно открыт."
+          echo "Ожидание применения правила Security Group..."
+          sleep 15
 
       # Пробрасываем SSH-ключ развертывания из GitHub Secrets в память ssh-agent
       - name: Set up SSH Agent Forwarding

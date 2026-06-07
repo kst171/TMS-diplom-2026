@@ -6,144 +6,270 @@
 
 ### Назначение: система предназначена для операторов технической поддержки и позволяет вести учёт заявок от момента регистрации до закрытия, отслеживать статусы, приоритеты и историю работы по каждому обращению.
 
-### Компоненты:
-*   **Приложение:** Python 3.11+ · Flask · SQLAlchemy (ORM) · Gunicorn
-*   **Инфраструктура:** IaC (Terraform 1.5+) · CI/CD (GitHub Actions) · Configuration Management (Ansible 2.20)
-*   **Среда выполнения:** Облако AWS (VPC, Managed EKS 1.31, EC2, Network Load Balancer)
-*   **Наблюдаемость (Observability):** Централизованный стек Zabbix 7.0 LTS (Docker Compose)
+## Стек технологий
+
+| Слой | Технологии |
+|---|---|
+| Приложение | Python, Flask, Gunicorn, PostgreSQL |
+| Контейнеризация | Docker, Docker Compose |
+| Оркестрация | Kubernetes (AWS EKS) |
+| Инфраструктура | Terraform, AWS (VPC, EC2, EKS, S3) |
+| Автоматизация | Ansible |
+| CI/CD | GitHub Actions |
+| Мониторинг | Zabbix 7.0 |
+---
+
+## Архитектура решения и сетевой контур
+
+Инфраструктура описана как код (IaC) и развёрнута в регионе Стокгольм (`eu-north-1`) со строгим разделением на три сетевых сегмента по принципу **Zero Trust**:
+
+1. **Публичный сегмент (`public_subnets`)**:
+   - **Zabbix-Server / Bastion Host (EC2 `t3.small`, 2 ГБ ОЗУ):** Единая точка входа для мониторинга инфраструктуры. Контейнеризированный стек Zabbix 7.0 LTS (Zabbix Server + Web + MySQL 8.0). Параллельно выполняет роль защищённого бастион-хоста (Jump-сервера). Прямой доступ к приватной зоне из интернета закрыт.
+
+2. **Приватный сегмент (`private_subnets`)**:
+   - **App-Database Primary (EC2 `t3.micro`, 1 ГБ ОЗУ):** Нативная СУБД PostgreSQL 16. Без публичного IP. Принимает подключения по порту `5432` исключительно из доверенного CIDR VPC.
+   - **App-Database Replica (EC2 `t3.micro`, 1 ГБ ОЗУ):** Резервная реплика PostgreSQL с настроенной Streaming Replication (WAL).
+   - **Рабочие ноды AWS EKS (`c7i-flex.large`):** Worker Nodes под управлением Kubernetes, оркеструющие поды Flask-приложения.
+
+3. **Изолированный сегмент (`intra_subnets`)**:
+   - Выделен исключительно под сетевые интерфейсы Control Plane управляемого кластера EKS.
 
 ---
 
-### Архитектура решения и сетевой контур
-
-Инфраструктура описана как код (IaC) и развернута в регионе Стокгольм (`eu-north-1`) со строгим разделением на три сетевых сегмента по принципу **Zero Trust**:
-
-1.  **Публичный сегмент (`public_subnets`)**:
-    *   **Zabbix-Server / Bastion Host (EC2 `t3.small`, 2 ГБ ОЗУ):** Служит единой точкой входа для мониторинга инфраструктуры. Настроен контейнеризированный стек Zabbix 7.0 LTS (Zabbix Server + Web + MySQL 8.0). Параллельно выполняет роль защищенного бастион-хоста (Jumper-сервера) [^1^]. Прямой доступ к приватной зоне из интернета закрыт [^1^].
-2.  **Приватный сегмент (`private_subnets`)**:
-    *   **App-Database (EC2 `t3.micro`, 1 ГБ ОЗУ):** Нативная выделенная СУБД **PostgreSQL 16** [^1^]. Не имеет публичного IP. Сетевой сокет принимает входящие подключения по порту `5432` исключительно из доверенного внутреннего диапазона CIDR VPC [^1^].
-    *   **Рабочие ноды AWS EKS (`c7i-flex.large`):** Вычислительные мощности (Worker Nodes) под управлением Kubernetes, оркеструющие поды Flask-приложения.
-3.  **Изолированный сегмент (`intra_subnets`)**:
-    *   Выделен исключительно под сетевые интерфейсы Control Plane управляемого кластера Kubernetes EKS.
-
----
-
-### Структура проекта
+## Структура проекта
 
 ```text
 .
 ├── .github/
 │   └── workflows/
-│       └── deploy.yml              # Манифест CI/CD пайплайна GitHub Actions
+│       ├── ci.yml                      # Smoke-тесты при PR в develop/main
+│       └── deploy.yml                  # Полный деплой при merge в main
 ├── ansible/
 │   ├── group_vars/
-│   │   └── all.yml                 # Переменные конфигурации ПО и реквизиты СУБД
-│   ├── ansible.cfg                 # Системная конфигурация Ansible (SSH Pipelining)
-│   ├── deploy-postgre-db.yml       # Плейбук нативной установки и защиты PostgreSQL 16
-│   ├── deploy-zabbix.yml           # Плейбук развертывания Zabbix 7.0 в Docker
-│   ├── docker-compose.zabbix.yml   # Манифест контейнеров Zabbix + MySQL 8.0
-│   └── site.yml                    # Главный оркестратор конфигурации ОС
+│   │   └── all.yml                     # Переменные конфигурации и реквизиты СУБД
+│   ├── templates/
+│   │   └── zabbix_agent2.conf.j2       # Шаблон конфига Zabbix Agent2
+│   ├── ansible.cfg                     # Системная конфигурация Ansible
+│   ├── site.yml                        # Главный оркестратор плейбуков
+│   ├── deploy-postgre-db.yml           # Установка и настройка PostgreSQL 16
+│   ├── deploy-postgres-replication.yml # Настройка Streaming Replication
+│   ├── deploy-zabbix.yml               # Развёртывание Zabbix 7.0 в Docker
+│   ├── deploy-zabbix-agents.yml        # Установка Zabbix Agent2 на все хосты
+│   ├── configure-zabbix-autoregister.yml # Авторегистрация хостов через API
+│   ├── docker-compose.zabbix.yml       # Манифест контейнеров Zabbix + MySQL
+│   └── inventory.ini.tpl               # Шаблон инвентаря (генерируется Terraform)
 ├── k8s/
-│   ├── deployment.yaml             # Манифест подов Flask/Gunicorn в кластере EKS
-│   ├── secret.yaml                 # Шифрованные sensitive-данные СУБД (Kubernetes Secret)
-│   └── service.yaml                # Публикация приложения через AWS Network Load Balancer
+│   ├── deployment.yaml                 # Манифест подов Flask/Gunicorn
+│   ├── secret.yaml.tpl                 # Шаблон секретов СУБД
+│   └── service.yaml                    # AWS Network Load Balancer (порт 8080)
 ├── terraform/
-│   ├── modules/                    # Локальные модули инфраструктуры (VPC, EKS)
-│   ├── database.tf                 # Конфигурация ВМ СУБД и правил Security Groups
-│   ├── ec2_zabbix.tf               # Конфигурация ВМ мониторинга и Bastion-хоста
-│   ├── providers.tf                # Объявление провайдеров (AWS) и сквозных тегов
-│   └── vpc.tf                      # Инициализация и распределение подсетей VPC
-├── app.py                          # Бизнес-логика Flask и механизм автоматического Bootstrap БД
-├── models.py                       # Описание ORM-моделей данных (связи ForeignKey)
-├── Dockerfile                      # Высокооптимизированная многоэтапная (Multi-stage) сборка образа
-├── requirements.txt                # Зависимости Python-компонентов
-└── .dockerignore                   # Исключение локального кэша из контекста сборки
+│   ├── modules/                        # Модули VPC и EKS
+│   ├── main.tf                         # Провайдеры и S3 backend
+│   ├── variables.tf                    # Переменные (aws_account_id)
+│   ├── outputs.tf                      # IP адреса после apply
+│   ├── eks.tf                          # EKS кластер и node groups
+│   ├── ec2_database.tf                 # EC2 для PostgreSQL primary + replica
+│   └── ec2_zabbix.tf                   # EC2 для Zabbix / Bastion
+├── templates/                          # Jinja2 HTML шаблоны
+├── static/                             # CSS, JS, изображения
+├── app.py                              # Flask приложение и маршруты
+├── models.py                           # SQLAlchemy ORM модели
+├── Dockerfile                          # Multi-stage сборка образа
+├── docker-compose.yml                  # Production конфигурация
+├── docker-compose.dev.yml              # Dev конфигурация с hot-reload
+└── requirements.txt                    # Python зависимости
+
+---
+
+## Локальная разработка
+
+### Требования
+
+- Docker + Docker Compose
+- Git
+
+### Быстрый старт
+
+```bash
+# Клонировать репозиторий
+git clone https://github.com/kst171/TMS-diplom-2026.git
+cd TMS-diplom-2026
+
+# Создать .env файл
+cp .env.example .env
+# Отредактировать .env при необходимости
+
+# Режим разработки с hot-reload (изменения видны без пересборки)
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+# Production режим (Gunicorn, как в AWS)
+docker-compose up --build
+```
+
+Приложение: `http://localhost:8000`
+
+
+---
+
+## Ветки Git и CI/CD
+
+### Структура веток
+
+```
+main      — production, триггер деплоя в AWS (защищена)
+  ↑ PR
+develop   — основная ветка разработки
+```
+
+### Работа с ветками
+
+```bash
+# Начало работы над фичей
+git checkout develop
+git checkout -b feature/my-feature
+
+# Локальное тестирование
+docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+# Коммит и пуш
+git add .
+git commit -m "feat: описание изменений"
+git push origin feature/my-feature
+
+# Создать PR: feature/my-feature → develop
+# После прохождения CI → merge
+# Создать PR: develop → main → деплой в AWS
 ```
 
 ---
 
-### Сквозной пайплайн автоматизации (CI/CD)
+## Развёртывание в AWS
 
-Развертывание программно-аппаратного комплекса полностью автоматизировано и управляется по принципу **GitOps** через GitHub Actions [^4^]. При выполнении команды `git push origin main` запускаются два связанных этапа (Jobs) [^4^]:
+### Требования
 
-#### ЭТАП 1: Конфигурационное управление (Ansible & AWS CLI)
-1.  **Динамический Firewall:** Пайплайн налету определяет текущий публичный IP-адрес раннера GitHub Actions и с помощью AWS CLI временно открывает для него порт 22 (SSH) в группе безопасности `zabbix-sg` [^4^].
-2.  **Настройка Zabbix:** Ansible разворачивает среду Docker, Docker Compose и запускает стек мониторинга на инстанции `t3.small` [^1^].
-3.  **Безопасный SSH-туннель:** С помощью механизма `ProxyCommand` через Zabbix-сервер Ansible проваливается в приватную сеть, устанавливает **PostgreSQL 16** [^1^], создает базу данных `fs_support_db` и пользователя `db_user`.
-4.  **Закрытие периметра:** По окончании работы плейбука пайплайн принудительно отзывает правила доступа. Доступ снаружи по SSH полностью блокируется [^4^].
+- Terraform >= 1.5.0
+- AWS CLI с настроенными credentials
+- Ansible
+- kubectl
 
-#### ЭТАП 2: Cloud-Native Деплой приложения (Docker & K8s)
-1.  **Multi-stage сборка:** В целях безопасности и минимизации размера образ собирается в два этапа. Компиляторы (`gcc`, `libpq-dev`) остаются на стадии сборщика, а в финальный образ копируются только скомпилированные пакеты и runtime-библиотека `libpq5`.
-2.  **Пуш артефакта:** Образ отправляется на Docker Hub с уникальным тегом на основе SHA-хэша текущего коммита (`${{ github.sha }}`) [^4^].
-3.  **GitOps в EKS:** Раннер обязуется обновить конфигурацию `kubeconfig` кластера EKS версии 1.31, подставляет актуальный тег образа с помощью `sed` и применяет манифесты [^4^].
-4.  **Автономный Bootstrap БД:** В манифесте `deployment.yaml` скрыты открытые пароли — они безопасно импортируются из `helpdesk-secret`. При первом запуске пода Flask-приложение выполняет встроенный Python-блок `db.create_all()`. Оно само соединяется со скрытой СУБД по внутреннему IP и генерирует связанные таблицы `ticket` и `comment` с соблюдением внешних ключей (`db.ForeignKey('ticket.id')`) [^5^].
+### 1. Развёртывание инфраструктуры (IaC)
 
----
+Выполняется один раз для подготовки облачного контура:
 
-### Инженерный путеводитель по командам
-
-#### 1. Локальное развертывание базовых облачных ресурсов (IaC)
-Выполняется инженером один раз для подготовки сетевого и вычислительного контура в AWS [^1^, ^3^]:
 ```bash
 cd terraform/
 terraform init
 terraform plan
-terraform apply --auto-approve
+terraform apply
 ```
-*По окончании работы на диске автоматически генерируется файл `ansible/inventory.ini` с актуальными выданными IP-адресами серверов.*
 
-#### 2. Запуск GitOps-пайплайна автоматизации ПО и деплоя приложения
-Любое изменение в коде или инфраструктурном инвентаре отправляется в Git, активируя автоматику [^4^]:
+Terraform создаёт:
+- VPC с публичными, приватными и изолированными подсетями
+- EKS кластер (1 нода `c7i-flex.large`)
+- EC2 для PostgreSQL primary + replica (`t3.micro`)
+- EC2 для Zabbix / Bastion (`t3.small`)
+- S3 bucket для хранения terraform state
+
+По окончании автоматически генерируется `ansible/inventory.ini` с актуальными IP адресами.
+
+### 2. Запуск GitOps пайплайна
+
 ```bash
 git add .
-git commit -m "feat: complete infrastructure automation and app deployment"
-git push origin main
+git commit -m "feat: описание"
+git push origin develop
+# Создать PR develop → main на GitHub
 ```
 
-#### 3. Инспекция состояния компонентов в кластере EKS
-Команды для верификации статуса развернутых ресурсов на управляющем сервере [^4^]:
+### 3. Инспекция состояния в EKS
+
 ```bash
-# Проверка статуса запуска пода приложения (должен быть Running)
+# Статус пода (должен быть Running)
 kubectl get pods -l app=helpdesk-app
 
-# Получение публичного DNS-адреса Network Load Balancer (NLB) для демонстрации
+# Получить публичный DNS адрес NLB
 kubectl get service helpdesk-service
 ```
-*Адрес из столбца `EXTERNAL-IP` (например, `ae54a7c7...eu-north-1.elb.amazonaws.com`) вставляется в браузер для демонстрации работы Helpdesk-системы комиссии [^4^].*
 
-#### 4. Ручной вход в изолированную СУБД PostgreSQL (Для аудита комиссии)
-Для демонстрации связи подов с приватной базой и структуры таблиц можно использовать сквозной прыжок через бастион со своего компьютера [^1^]:
+Адрес из столбца `EXTERNAL-IP` открывается в браузере — `http://<EXTERNAL-IP>:8080`
+
+### 4. Подключение к PostgreSQL (для аудита)
+
 ```bash
-# Сквозное подключение по SSH с локального ПК на private-хост БД через public-хост Zabbix
-ssh -i ~/.ssh/diplom_aws_key -J ubuntu@<PUBLIC_IP_ZABBIX> ubuntu@10.0.1.89
+# Подключение через Bastion
+ssh -i ~/.ssh/diplom_aws_key -J ubuntu@<PUBLIC_IP_ZABBIX> ubuntu@<DB_PRIVATE_IP>
 
-# Вход в интерактивный терминал СУБД PostgreSQL
+# Вход в PostgreSQL
 sudo -i -u postgres psql
 \c fs_support_db
 \dt
 SELECT * FROM ticket;
 ```
 
-#### 5. FinOps Регламент консервации ресурсов (Экономия бюджета)
-По окончании работы или демонстрации проекта облачные ресурсы полностью уничтожаются для предотвращения начисления платы (с возможностью восстановления одной кнопкой):
-```bash
-# 1. Удаляем манифесты K8s, высвобождая облачный балансировщик AWS NLB
-kubectl delete -f k8s/service.yaml
-kubectl delete -f k8s/deployment.yaml
-kubectl delete -f k8s/secret.yaml
+## Сквозной CI/CD пайплайн
 
-# 2. Уничтожаем базовое облачное железо IaC
-cd terraform/
-terraform destroy --auto-approve
+### ЭТАП 1: Конфигурационное управление (Ansible)
+
+1. **Динамический Firewall:** пайплайн определяет IP раннера и временно открывает порт 22 в Security Group через AWS CLI
+2. **Zabbix:** Ansible разворачивает Docker и запускает стек мониторинга
+3. **PostgreSQL:** через SSH туннель (ProxyCommand via Bastion) устанавливает PostgreSQL 16, создаёт БД и пользователя
+4. **Репликация:** настраивает Streaming Replication (WAL) между primary и replica
+5. **Мониторинг:** устанавливает Zabbix Agent2 на все EC2, настраивает авторегистрацию через Zabbix API
+6. **Закрытие периметра:** отзывает временные правила SSH доступа
+
+### ЭТАП 2: Деплой приложения (Docker + Kubernetes)
+
+1. **Multi-stage сборка:** компиляторы остаются на стадии builder, в финальный образ копируются только пакеты и `libpq5`
+2. **Push в Docker Hub:** образ `helpdesk-app:latest`
+3. **Генерация секретов:** terraform output → base64 → `k8s/secret.yaml`
+4. **Деплой в EKS:** `kubectl apply` манифестов, Bootstrap БД через `db.create_all()`
+
+---
+
+## База данных — Streaming Replication
+
+PostgreSQL 16 с настроенной репликацией:
+
 ```
+Flask Pod → записывает → Primary PostgreSQL
+                               ↓ WAL stream
+                         Replica PostgreSQL
+                         (синхронная копия)
+```
+Направление развития: **Patroni** для автоматического failover в production среде.
 
 ---
 
-### Мониторинг и наблюдаемость (Observability)
+## Мониторинг (Zabbix 7.0)
 
-Система Zabbix 7.0 LTS интегрирована со всеми компонентами инфраструктуры [^1^]:
-*   **Ноды Kubernetes и ВМ:** На всех хостах развернуты Zabbix-агенты, собирающие метрики загрузки CPU, RAM, дисковой подсистемы (IOPS) и сетевой активности.
-*   **Мониторинг СУБД:** Посредством плагина *PostgreSQL by Zabbix Agent 2* в режиме реального времени строятся графики активных сессий Flask-приложения, количества транзакций (`COMMIT/ROLLBACK`), кэш-хитов и размера таблиц на диске [^1^].
-*   **Реквизиты доступа к панели Zabbix Web:** `http://<PUBLIC_IP_ZABBIX>` (Вход: `Admin` / `zabbix`) [^1^].
+**Веб интерфейс:** `http://<PUBLIC_IP_ZABBIX>` — логин `Admin` / `zabbix`
+
+Zabbix Agent2 установлен на все EC2 инстансы и автоматически регистрируется в Zabbix Server. Шаблон **Linux by Zabbix agent** собирает:
+
+- CPU utilization, Memory usage
+- Disk space, IOPS
+- Network traffic
+- System uptime, Running processes
 
 ---
+
+## GitHub Secrets
+
+Для работы CI/CD необходимо настроить в репозитории:
+
+| Secret | Назначение |
+|---|---|
+| `AWS_ACCESS_KEY_ID` | Доступ к AWS |
+| `AWS_SECRET_ACCESS_KEY` | Доступ к AWS |
+| `AWS_ACCOUNT_ID` | ARN в Terraform |
+| `SSH_PRIVATE_KEY` | SSH к EC2 инстансам |
+| `DOCKERHUB_USERNAME` | Docker Hub |
+| `DOCKERHUB_TOKEN` | Docker Hub |
+| `DB_PASSWORD` | PostgreSQL пользователь |
+| `REPLICATION_PASSWORD` | PostgreSQL репликация |
+
+---
+
+## Автор
+
+Кирилл Тыманович — Дипломный проект TMS DevOps 2026
