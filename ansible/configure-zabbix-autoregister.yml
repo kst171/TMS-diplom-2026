@@ -72,3 +72,72 @@
       failed_when: >
         autoregister_result.json.error is defined and
         'already exists' not in (autoregister_result.json.error.data | default(''))
+
+    - name: Rename hosts by IP
+      uri:
+        url: "http://localhost/api_jsonrpc.php"
+        method: POST
+        body_format: json
+        body:
+          jsonrpc: "2.0"
+          method: "host.get"
+          params:
+            output:
+              - hostid
+              - host
+              - name
+          auth: "{{ zabbix_auth }}"
+          id: 10
+        status_code: 200
+      register: zabbix_hosts
+
+    - name: Rename primary database host
+      uri:
+        url: "http://localhost/api_jsonrpc.php"
+        method: POST
+        body_format: json
+        body:
+          jsonrpc: "2.0"
+          method: "host.update"
+          params:
+            hostid: "{{ item.hostid }}"
+            name: "App-Database-Primary"
+          auth: "{{ zabbix_auth }}"
+          id: 11
+        status_code: 200
+      loop: "{{ zabbix_hosts.json.result }}"
+      when: item.host == hostvars['app-database']['ansible_host']
+
+    - name: Rename replica database host
+      uri:
+        url: "http://localhost/api_jsonrpc.php"
+        method: POST
+        body_format: json
+        body:
+          jsonrpc: "2.0"
+          method: "host.update"
+          params:
+            hostid: "{{ item.hostid }}"
+            name: "App-Database-Replica"
+          auth: "{{ zabbix_auth }}"
+          id: 12
+        status_code: 200
+      loop: "{{ zabbix_hosts.json.result }}"
+      when: item.host == hostvars['app-database-replica']['ansible_host']
+
+    - name: Rename Zabbix server host
+      uri:
+        url: "http://localhost/api_jsonrpc.php"
+        method: POST
+        body_format: json
+        body:
+          jsonrpc: "2.0"
+          method: "host.update"
+          params:
+            hostid: "{{ item.hostid }}"
+            name: "Zabbix-Server"
+          auth: "{{ zabbix_auth }}"
+          id: 13
+        status_code: 200
+      loop: "{{ zabbix_hosts.json.result }}"
+      when: item.host == "Zabbix server"    
