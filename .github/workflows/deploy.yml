@@ -177,6 +177,7 @@ jobs:
           terraform init
           
           PRIMARY_IP=$(terraform output -raw database_primary_ip)
+          ZABBIX_PRIVATE_IP=$(terraform output -raw zabbix_private_ip)
           
           cat > ../k8s/secret.yaml << EOF
           apiVersion: v1
@@ -189,6 +190,7 @@ jobs:
             DB_USER: $(echo -n "db_user" | base64 -w 0)
             DB_PASSWORD: $(echo -n "${{ secrets.DB_PASSWORD }}" | base64 -w 0)
             DB_NAME: $(echo -n "fs_support_db" | base64 -w 0)
+            ZABBIX_IP: $(echo -n "${ZABBIX_PRIVATE_IP}" | base64 -w 0)
           EOF
           
           echo "Generated secret.yaml:"
@@ -213,6 +215,7 @@ jobs:
           kubectl apply -f k8s/secret.yaml
           kubectl apply -f k8s/deployment.yaml
           kubectl apply -f k8s/service.yaml
+          kubectl apply -f k8s/zabbix-agent-daemonset.yaml
 
 
 
