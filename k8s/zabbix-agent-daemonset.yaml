@@ -29,12 +29,22 @@ spec:
               value: "10051"
             - name: ZBX_ACTIVE_ALLOW
               value: "true"
+            - name: ZBX_PASSIVE_ALLOW
+              value: "true"
+            - name: ZBX_STARTAGENTS
+              value: "3"
             - name: ZBX_HOSTNAME
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
             - name: ZBX_HOSTMETADATA
               value: "Linux AWS EC2"
+            - name: ZBX_LISTENPORT
+              value: "10050"
+          ports:
+            - containerPort: 10050
+              hostPort: 10050
+              protocol: TCP
           securityContext:
             privileged: true
           volumeMounts:
