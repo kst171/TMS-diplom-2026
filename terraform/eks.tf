@@ -106,3 +106,16 @@ resource "kubernetes_cluster_role_binding_v1" "github_actions_arn_binding" {
 
   depends_on = [module.eks]
 }
+
+# Открыть порт 10050 на нодах EKS для Zabbix мониторинга
+resource "aws_vpc_security_group_ingress_rule" "eks_node_zabbix" {
+  security_group_id = module.eks.node_security_group_id
+  cidr_ipv4         = module.vpc.vpc_cidr_block
+  from_port         = 10050
+  to_port           = 10050
+  ip_protocol       = "tcp"
+
+  tags = {
+    Name = "zabbix-agent-access"
+  }
+}
