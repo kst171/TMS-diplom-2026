@@ -22,7 +22,7 @@ spec:
           image: your-dockerhub-username/helpdesk-app:${IMAGE_TAG}
           imagePullPolicy: Always
           ports:
-            - containerPort: 8000 # Порт, на котором Flask/Gunicorn слушает трафик внутри контейнера
+            - containerPort: 80 # трафик принимает Nginx
 
           env:
             - name: DB_HOST
@@ -55,8 +55,8 @@ spec:
           livenessProbe:
             httpGet:
               path: /health # Убедитесь, что этот роут возвращает HTTP 200 в коде Flask
-              port: 8000
-            initialDelaySeconds: 15
+              port: 80
+            initialDelaySeconds: 20
             periodSeconds: 20
 
           # Лимиты ресурсов защищают ноды кластера от перегрузки
