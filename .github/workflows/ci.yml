@@ -28,12 +28,12 @@ jobs:
       - name: Wait for app to be ready
         run: |
           for i in {1..15}; do
-            curl -sf http://localhost:8000/health && echo "App is up!" && exit 0
-            echo "Waiting... ($i)"
+            curl -sf http://localhost:80/health && echo "App is up!" && exit 0
+            echo "Waiting for Nginx & Flask to be ready... ($i)"
             sleep 3
           done
           echo "App did not start in time"
-          docker-compose logs web
+          docker compose logs web
           exit 1
 
       - name: Smoke test — check main routes
