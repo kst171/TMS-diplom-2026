@@ -38,8 +38,8 @@ jobs:
 
       - name: Smoke test — check main routes
         run: |
-          curl -sf http://localhost:8000/ | grep -q "." && echo "/ OK"
-          curl -sf http://localhost:8000/tickets | grep -q "." && echo "/tickets OK"
+          curl -sf http://localhost:80/ | grep -q "." && echo "/ OK"
+          curl -sf http://localhost:80/tickets | grep -q "." && echo "/tickets OK"
 
       - name: Cleanup
         if: always()
