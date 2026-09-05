@@ -22,7 +22,7 @@ services:
     build: .
     restart: unless-stopped
     ports:
-      - "8000:8000"                # порт совпадает с Gunicorn в Dockerfile
+      - "80:80"                    # порт совпадает с Gunicorn в Dockerfile
     env_file:
       - .env                       # секреты не хранятся в docker-compose.yml
     depends_on:
